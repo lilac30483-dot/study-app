@@ -8,6 +8,9 @@ st.set_page_config(page_title="수행평가 대비 프로그램", layout="center
 
 st.title("📝 수행평가 대비 프로그램")
 
+uploaded_img = None
+memo_text = ""
+
 api_key = st.sidebar.text_input("Gemini API 키를 입력하세요", type="password")
 
 if api_key:
