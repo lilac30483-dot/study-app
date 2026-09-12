@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.3)
+# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.4)
 # ==========================================
 st.markdown("""
 <style>
@@ -63,7 +63,7 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 </style>
-<div class="version-label">v 1.3</div>
+<div class="version-label">v 1.4</div>
 """, unsafe_allow_html=True)
 
 
@@ -110,7 +110,7 @@ def generate_content_with_retry(
 ):
     if config is None:
         config = types.GenerateContentConfig(
-            max_output_tokens=2048,
+            max_output_tokens=8192,
             temperature=0.7
         )
 
@@ -247,15 +247,15 @@ if st.session_state['material_mode']:
                     if mat_img is not None:
                         contents_mat.append(mat_img)
 
-                    # 🚨 다운로드용 순수 HTML 구조물 생성을 위한 강력한 프롬프트 (이미지가 깨지지 않도록 올바른 공개 이미지 URL 활용 강제)
+                    # 🚨 다운로드용 순수 HTML 구조물 생성을 위한 강력한 프롬프트 (중간 끊김 방지 및 핵심 완성)
                     prompt_complex = """
 당신은 최고의 웹 교재 및 복합양식 학습 자료 디자이너입니다.
-제공된 자료와 주제를 바탕으로 사용자가 다운로드하여 웹브라우저로 열어볼 수 있는 '완벽한 단독 실행형 HTML 문서 코드'를 작성하세요.
+제공된 자료와 주제를 바탕으로 사용자가 다운로드하여 웹브라우저로 열어볼 수 있는 '완벽한 단독 실행형 HTML 문서 코드'를 처음부터 끝까지 완성도 있게 작성하세요.
 
 [🚨 절대 엄수 규칙]
-1. 결과물은 오직 HTML 코드(`<!DOCTYPE html>...</html>`) 전체만 출력하세요. 마크다운 백틱(```html ... ```)이나 설명 글을 절대 붙이지 말고, 순수 HTML 문자열만 출력하세요.
-2. 내부 CSS 스타일을 포함하여 모바일과 PC 모두에서 예쁘게 보이도록 디자인하세요 (깔끔한 폰트, 적절한 여백, 카드 형식의 디자인).
-3. 내용 중간중간에 주제와 관련된 시각 자료가 풍부하도록 위키미디어(Wikimedia Commons) 등 검증된 안정적인 공개 이미지 URL을 포함한 `<img>` 태그를 적절히 삽입해 주세요. (이미지 주소가 깨지지 않도록 정확하게 작성할 것)
+1. 결과물은 반드시 완벽한 HTML 코드(`<!DOCTYPE html>...</html>`) 전체만 출력하세요. 중간에 코드가 잘리거나 생략되면 절대 안 됩니다. 마크다운 백틱(```html ... ```)이나 설명 글을 절대 붙이지 말고, 순수 HTML 문자열만 처음부터 끝까지 출력하세요.
+2. 내부 CSS 스타일을 포함하여 모바일과 PC 모두에서 예쁘고 깔끔하게 보이도록 디자인하세요.
+3. 내용 중간중간에 주제와 관련된 시각 자료가 풍부하도록 위키미디어(Wikimedia Commons) 등 검증된 안정적인 공개 이미지 URL을 포함한 `<img>` 태그를 적절히 삽입해 주세요.
 4. 수행평가 팁이나 불필요한 잡소리는 빼고, 오직 고품질의 순수 학습 개념 내용과 표, 목록, 이미지로만 문서를 채우세요.
 """
                     if mat_topic.strip():
@@ -267,7 +267,7 @@ if st.session_state['material_mode']:
                     contents_mat.append(prompt_complex)
 
                     config_mat = types.GenerateContentConfig(
-                        max_output_tokens=3000,
+                        max_output_tokens=8192,
                         temperature=0.7
                     )
 
