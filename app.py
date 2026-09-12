@@ -61,7 +61,7 @@ if st.session_state['qna_mode']:
     st.stop()
 
 # ==========================================
-# 📄 복합 양식 학습 자료 제작 전용 화면 (이미지 실시간 검색 연동)
+# 📄 복합 양식 학습 자료 제작 전용 화면 (인터넷 사진 연동 및 과부하 방지)
 # ==========================================
 if st.session_state['material_mode']:
     st.title("📑 고퀄리티 복합 양식 교재 제작실")
@@ -69,7 +69,7 @@ if st.session_state['material_mode']:
         st.session_state['material_mode'] = False
         st.rerun()
         
-    st.info("글자와 '인터넷 실제 사진/도표'가 어우러진 복합 양식 실전 학습 노트를 제작합니다.")
+    st.info("글자와 인터넷 실제 사진/도표가 어우러진 진정한 복합 양식 학습 노트를 제작합니다.")
     
     mat_img_file = st.file_uploader("🖼️ 참고 사진/자료 업로드 (선택 사항)", type=["jpg", "jpeg", "png"], key="mat_img")
     mat_img = None
@@ -77,8 +77,8 @@ if st.session_state['material_mode']:
         mat_img = Image.open(mat_img_file)
         st.image(mat_img, caption="업로드된 사진", use_container_width=True)
     
-    mat_topic = st.text_area("1. 교재로 만들 핵심 주제나 원본 텍스트", height=120, placeholder="예: 과학 - 광합성에 미치는 빛의 세기와 온도의 영향 (실험 보고서)")
-    mat_request = st.text_area("2. 추가 요청사항 (선택 사항)", height=120, placeholder="예: 글 중간에 이해를 돕는 실제 인터넷 사진이나 그래프를 꼭 넣어주고, 중요한 개념은 표로 정리해줘.")
+    mat_topic = st.text_area("1. 교재로 만들 핵심 주제나 원본 텍스트", height=120, placeholder="예: 중세 유럽의 백년전쟁과 잔 다르크의 활약상")
+    mat_request = st.text_area("2. 추가 요청사항 (선택 사항)", height=120, placeholder="예: 전쟁의 원인과 전개 과정을 표로 정리하고, 관련 실제 역사 유물이나 초상화 사진을 본문에 넣어줘.")
     
     if st.button("✨ 복합 양식 학습 자료 생성하기 (인터넷 사진+텍스트)", type="primary", use_container_width=True):
         api_key = st.session_state.get('saved_api_key', '')
@@ -86,7 +86,7 @@ if st.session_state['material_mode']:
             client = genai.Client(api_key=api_key)
             st.session_state.pop('generated_complex_material', None)
             
-            with st.spinner("인터넷에서 관련 사진을 찾고 교재를 작성 중입니다... (약 10~20초 소요)"):
+            with st.spinner("인터넷에서 관련 사진을 찾고 완벽한 교재를 작성 중입니다... (약 10~15초 소요)"):
                 try:
                     contents_mat = []
                     if mat_img is not None:
@@ -94,16 +94,13 @@ if st.session_state['material_mode']:
                     
                     prompt_complex = """
                     당신은 최고의 일타 강사이자 교재 제작 전문가입니다.
-                    다음 제공된 자료(사진 및 텍스트)를 바탕으로, 학생들이 직관적으로 이해할 수 있는 '고품질 복합 양식 학습 자료'를 만들어주세요.
+                    다음 제공된 자료(사진 및 텍스트)를 바탕으로, 학생들이 직관적으로 이해하고 암기할 수 있는 '고품질 복합 양식 학습 자료'를 만들어주세요.
 
-                    [🚨 매우 중요한 복합 양식 작성 규칙]
-                    1. 구글 검색 기능을 최대한 활용하여, 주제와 완벽히 일치하는 **실제 인터넷 사진, 도표, 그래프의 이미지 URL(위키미디어 공용 등)**을 2~3개 찾으세요.
-                    2. 찾은 실제 이미지 URL을 마크다운 문법인 `![이미지 설명](실제_이미지_URL)` 형식으로 글 내용 중간중간 알맞은 위치에 직접 삽입하세요. (절대 가짜 URL을 지어내지 마세요).
-                    3. ┌, ─, ┐ 와 같은 '특수문자를 활용한 선 긋기나 텍스트 박스'는 단 하나도 사용하지 마세요. (폰트 깨짐 방지)
-                    4. 시각화가 필요할 때는 오직 **표(Markdown Table)**, **글머리 기호(-)**, **인용구(>)**, 그리고 위에서 요구한 **실제 마크다운 이미지**만을 사용하세요.
-
-                    [📝 내용 구성 핵심 규칙]
-                    - 핵심 키워드 설명 -> 구조화된 표 -> 요약 포인트 순서로 적절히 배치하여 시각적으로 지루하지 않게 구성하세요.
+                    [🚨 복합 양식 핵심 규칙]
+                    1. 구글 검색 기능을 활용하여, 주제와 밀접하게 연관된 **실제 인터넷 사진, 도표, 유물 등의 이미지 URL(위키미디어 공용 등 신뢰할 수 있는 소스)**을 2개 이상 찾으세요.
+                    2. 찾은 실제 이미지 URL을 반드시 마크다운 문법인 `![이미지 설명](실제_이미지_URL)` 형태로 글 내용 중간중간 알맞은 위치에 삽입하세요. (임의로 가짜 주소를 만들지 마세요).
+                    3. ┌, ─, ┐ 같은 '특수문자 선 긋기(ASCII Art)'는 절대 사용하지 마세요. (폰트 깨짐 방지)
+                    4. 시각화가 필요할 때는 오직 **표(Markdown Table)**, **글머리 기호(-)**, **인용구(>)**, 그리고 위에서 요구한 **실제 마크다운 이미지**만 사용하세요.
                     """
                     
                     if mat_topic.strip():
@@ -118,10 +115,10 @@ if st.session_state['material_mode']:
                         model='gemini-3.5-flash', contents=contents_mat, config=config_mat
                     )
                     st.session_state['generated_complex_material'] = res_mat.text
-                    st.success("고퀄리티 학습 자료가 성공적으로 생성되었습니다!")
+                    st.success("고퀄리티 복합 양식 학습 자료가 성공적으로 생성되었습니다!")
                     
                 except Exception as e:
-                    st.error(f"자료 생성 중 429 과부하 또는 오류가 발생했습니다. 잠시 후 다시 시도해주세요: {e}")
+                    st.error(f"과부하(429) 또는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요: {e}")
         else:
             st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
             
@@ -156,7 +153,7 @@ if api_key:
     st.divider()
 
     # ------------------------------------------
-    # 1. 일반 수행평가 준비 모드 (API 호출 최적화 완료)
+    # 1. 일반 수행평가 준비 모드 (429 에러 방지 통합 호출)
     # ------------------------------------------
     if mode == "일반 수행평가 준비":
         st.subheader("📄 참고 자료 및 안내지 입력")
@@ -179,13 +176,13 @@ if api_key:
         with col_m1:
             if st.button("📝 맞춤형 실전 문제 생성", use_container_width=True, type="primary"):
                 if guide_text.strip() and (ref_text_input.strip() or ref_img is not None):
-                    with st.spinner("AI가 자료를 분석하고 요약/팁/문제를 한 번에 생성 중입니다..."):
+                    with st.spinner("과부하 방지를 위해 한 번에 모든 자료를 분석하고 있습니다..."):
                         try:
                             contents_base = []
                             if ref_img is not None: contents_base.append(ref_img)
                             contents_base.append(f"[참고 텍스트]: {ref_text_input}\n[수행평가 안내지]: {guide_text}")
 
-                            # 429 에러 방지를 위해 4번의 API 호출을 1번으로 압축
+                            # 4번 호출하던 것을 1번으로 통합 호출하여 429 에러 예방
                             prompt_combined = """
                             위 수행평가 안내지와 참고자료를 분석하여 다음 4가지 항목을 작성해 주세요.
                             [🚨매우 중요🚨] 각 항목의 사이에는 반드시 `===구분선===` 이라는 텍스트를 정확히 입력하여 내용을 나누어 주세요.
@@ -204,7 +201,6 @@ if api_key:
                                 contents=contents_base + [prompt_combined]
                             )
                             
-                            # 응답 텍스트를 구분선 기준으로 분리
                             parts = [p.strip() for p in res_combined.text.split('===구분선===')]
                             
                             st.session_state['study_material'] = parts[0] if len(parts) > 0 else "요약 자료를 불러오지 못했습니다."
@@ -217,10 +213,10 @@ if api_key:
                             st.session_state['guide_text'] = guide_text
                             st.session_state['grading_result'] = None
                             st.session_state['current_mode'] = "일반"
-                            st.success("✅ 실전 문제 및 대비 자료가 모두 생성되었습니다!")
+                            st.success("✅ 실전 문제 및 대비 자료가 성공적으로 생성되었습니다!")
                             
                         except Exception as e:
-                            st.error(f"오류 발생 (429 과부하일 수 있습니다. 잠시 후 시도하세요): {e}")
+                            st.error(f"과부하(429) 오류가 발생했습니다. 10초 정도 기다렸다가 다시 시도해 주세요: {e}")
                 else:
                     st.warning("안내지와 참고자료를 모두 입력해 주세요.")
                     
@@ -323,7 +319,6 @@ if api_key:
                 st.markdown("### 📊 AI 채점 및 점수 예측 결과")
                 st.write(st.session_state['grading_result'])
 
-
     elif st.session_state.get('current_mode') == "암기" and mode == "암기 시험 연습" and 'memo_test_q' in st.session_state:
         st.divider()
         st.subheader("🧠 실전 암기 테스트")
@@ -379,3 +374,4 @@ if api_key:
 
 else:
     st.info("👈 왼쪽 사이드바에 Gemini API 키를 입력해 주세요.")
+
