@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.2)
+# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.3)
 # ==========================================
 st.markdown("""
 <style>
@@ -63,7 +63,7 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 </style>
-<div class="version-label">v 1.2</div>
+<div class="version-label">v 1.3</div>
 """, unsafe_allow_html=True)
 
 
@@ -191,17 +191,17 @@ if st.session_state['qna_mode']:
 
 
 # ==========================================
-# 📄 순수 학습 자료 제작실 (과부하 방지 가벼운 설정 + 이미지 및 개념만 포함)
+# 📄 복합양식 학습 자료 제작실 (다운로드 전용 고품질 HTML 교재 생성)
 # ==========================================
 if st.session_state['material_mode']:
 
-    st.title("📑 순수 학습 자료 제작실")
+    st.title("📑 복합양식 학습 자료 제작실")
 
     if st.button("⬅️ 메인 화면으로 돌아가기"):
         st.session_state['material_mode'] = False
         st.rerun()
 
-    st.info("오직 개념 요약과 시각 자료(이미지)가 포함된 깔끔한 학습 노트를 제작합니다.")
+    st.info("💡 이곳은 화면에 글을 띄우는 곳이 아닙니다! 핵심 개념과 이미지가 조화롭게 들어간 **복합양식 학습 자료(HTML 파일)**를 생성하여 다운로드하는 공간입니다.")
 
     mat_img_file = st.file_uploader(
         "🖼️ 참고 사진/자료 업로드 (선택 사항)",
@@ -224,40 +224,39 @@ if st.session_state['material_mode']:
     mat_topic = st.text_area(
         "1. 교재로 만들 핵심 주제나 원본 텍스트",
         height=120,
-        placeholder="예: 교과서 본문이나 참고할 지문을 붙여넣으세요. (선택 사항)"
+        placeholder="예: 교과서 본문이나 참고할 지문을 붙여넣으세요."
     )
 
     mat_request = st.text_area(
         "2. 추가 요청사항 (선택 사항)",
         height=120,
-        placeholder="예: 특정 개념 위주로 깔끔하게 정리해줘."
+        placeholder="예: 깔끔한 디자인의 표나 시각 자료 배치를 강조해줘."
     )
 
-    if st.button("✨ 학습 자료 생성하기", type="primary", use_container_width=True):
+    if st.button("✨ 복합양식 학습 자료 파일 생성하기", type="primary", use_container_width=True):
         api_key = st.session_state.get('saved_api_key', '')
 
         if api_key and (mat_topic.strip() or mat_img is not None):
             client = genai.Client(api_key=api_key)
-            st.session_state.pop('generated_complex_material', None)
+            st.session_state.pop('generated_html_material', None)
 
-            with st.spinner("과부하 없이 빠르게 학습 노트를 작성 중입니다..."):
+            with st.spinner("시각 자료와 개념이 담긴 고품질 학습 자료 파일을 빌드하고 있습니다..."):
                 try:
                     contents_mat = []
 
                     if mat_img is not None:
                         contents_mat.append(mat_img)
 
-                    # 🚨 팁, 문제, 부가 설명 완전 차단 + 가벼운 설정 (검색 도구 미사용으로 429 방지)
+                    # 🚨 다운로드용 순수 HTML 구조물 생성을 위한 강력한 프롬프트 (이미지가 깨지지 않도록 올바른 공개 이미지 URL 활용 강제)
                     prompt_complex = """
-당신은 최고의 교재 제작 전문가입니다.
-제공된 자료와 주제를 바탕으로 오직 '순수 학습 자료 및 핵심 개념 노트'만 작성하세요.
+당신은 최고의 웹 교재 및 복합양식 학습 자료 디자이너입니다.
+제공된 자료와 주제를 바탕으로 사용자가 다운로드하여 웹브라우저로 열어볼 수 있는 '완벽한 단독 실행형 HTML 문서 코드'를 작성하세요.
 
-[🚨 절대 엄수 규칙 - 위반 시 오류 발생 🚨]
-1. 수행평가 꿀팁, 평가 기준, 감점 예방 주의사항, 실전 문제, 응원 메시지, 인사말 등 학습 내용 외의 멘트는 단 한 글자도 적지 마세요.
-2. 오직 핵심 개념과 요약 내용만 깔끔하게 작성하세요.
-3. 마크다운 표(`|`) 내부에 `<br>` 같은 HTML 태그를 절대 사용하지 마세요.
-4. 내용 중간에 이해를 도울 수 있는 관련 이미지(위키미디어 등 안정적인 공개 이미지 URL)를 마크다운 형식(`![설명](이미지URL)`)으로 자연스럽게 포함해 주거나, 적절한 이미지 키워드와 함께 배치해 주세요.
-5. 불필요한 서두 없이 바로 제목부터 시작하세요.
+[🚨 절대 엄수 규칙]
+1. 결과물은 오직 HTML 코드(`<!DOCTYPE html>...</html>`) 전체만 출력하세요. 마크다운 백틱(```html ... ```)이나 설명 글을 절대 붙이지 말고, 순수 HTML 문자열만 출력하세요.
+2. 내부 CSS 스타일을 포함하여 모바일과 PC 모두에서 예쁘게 보이도록 디자인하세요 (깔끔한 폰트, 적절한 여백, 카드 형식의 디자인).
+3. 내용 중간중간에 주제와 관련된 시각 자료가 풍부하도록 위키미디어(Wikimedia Commons) 등 검증된 안정적인 공개 이미지 URL을 포함한 `<img>` 태그를 적절히 삽입해 주세요. (이미지 주소가 깨지지 않도록 정확하게 작성할 것)
+4. 수행평가 팁이나 불필요한 잡소리는 빼고, 오직 고품질의 순수 학습 개념 내용과 표, 목록, 이미지로만 문서를 채우세요.
 """
                     if mat_topic.strip():
                         prompt_complex += f"\n[주제/내용]: {mat_topic}"
@@ -267,9 +266,8 @@ if st.session_state['material_mode']:
 
                     contents_mat.append(prompt_complex)
 
-                    # 검색 도구를 빼고 기본 config만 사용하여 과부하(429) 원천 차단
                     config_mat = types.GenerateContentConfig(
-                        max_output_tokens=2500,
+                        max_output_tokens=3000,
                         temperature=0.7
                     )
 
@@ -281,8 +279,17 @@ if st.session_state['material_mode']:
                     )
 
                     if res_mat is not None:
-                        st.session_state['generated_complex_material'] = res_mat.text
-                        st.success("학습 자료가 성공적으로 생성되었습니다!")
+                        html_output = res_mat.text.strip()
+                        # 혹시라도 마크다운 코드블록 백틱이 포함되어 있다면 깔끔하게 제거
+                        if html_output.startswith("```html"):
+                            html_output = html_output[7:]
+                        if html_output.startswith("```"):
+                            html_output = html_output[3:]
+                        if html_output.endswith("```"):
+                            html_output = html_output[:-3]
+
+                        st.session_state['generated_html_material'] = html_output.strip()
+                        st.success("🎉 복합양식 학습 자료 파일이 성공적으로 준비되었습니다!")
 
                 except Exception as e:
                     st.error(f"오류가 발생했습니다: {e}")
@@ -290,18 +297,17 @@ if st.session_state['material_mode']:
         else:
             st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
 
-    if 'generated_complex_material' in st.session_state:
+    if 'generated_html_material' in st.session_state:
         st.divider()
-        st.markdown("### 📄 완성된 학습 노트")
+        st.success("📥 아래 버튼을 눌러 학습 자료 파일을 다운로드하세요! (다운로드한 파일을 더블클릭하면 이미지가 포함된 완벽한 학습 교재를 볼 수 있습니다)")
         
-        content = st.session_state['generated_complex_material']
-        st.markdown(content)
+        html_data = st.session_state['generated_html_material']
 
         st.download_button(
-            label="💾 자료 파일 다운로드 (.txt)",
-            data=content.encode('utf-8-sig'),
-            file_name="study_material.txt",
-            mime="text/plain",
+            label="💾 복합양식 학습 자료 다운로드 (.html)",
+            data=html_data.encode('utf-8'),
+            file_name="study_material.html",
+            mime="text/html",
             use_container_width=True
         )
 
@@ -309,7 +315,7 @@ if st.session_state['material_mode']:
 
 
 # ==========================================
-# 📝 메인 화면 시작
+# 📝 메인 화면 시작 (일반 수행평가 준비 & 암기 연습)
 # ==========================================
 st.title("📝 수행평가 대비 프로그램")
 
@@ -430,7 +436,7 @@ if api_key:
                     st.warning("안내지 텍스트, 참고 텍스트, 또는 사진 자료 중 하나 이상을 입력해 주세요.")
 
         with col_m2:
-            if st.button("📑 순수 학습 자료 제작실 가기", use_container_width=True):
+            if st.button("📑 복합양식 학습 자료 제작실 가기", use_container_width=True):
                 st.session_state['material_mode'] = True
                 st.rerun()
 
