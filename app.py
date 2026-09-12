@@ -164,10 +164,10 @@ if st.session_state['qna_mode']:
                         tools=[{"google_search": {}}]
                     )
 
-                    # ✅ 현존 구글 API 서버가 인식하는 최신 정식 식별코드(2.0-flash) 적용
+                    # ✅ 에러 메시지의 권장 사항에 맞춰 최신 3.6 모델 적용
                     res_qna = generate_content_with_retry(
                         client,
-                        'gemini-2.0-flash',
+                        'gemini-3.6-flash',
                         user_question,
                         config=config_qna
                     )
@@ -269,7 +269,7 @@ if st.session_state['material_mode']:
 
                     res_mat = generate_content_with_retry(
                         client,
-                        'gemini-2.0-flash',
+                        'gemini-3.6-flash',
                         contents_mat,
                         config=config_mat
                     )
@@ -389,7 +389,7 @@ if api_key:
 """
                             res_combined = generate_content_with_retry(
                                 client,
-                                'gemini-2.0-flash',
+                                'gemini-3.6-flash',
                                 contents_base + [prompt_combined]
                             )
 
@@ -477,7 +477,7 @@ if api_key:
 
                         res_memo = generate_content_with_retry(
                             client,
-                            'gemini-2.0-flash',
+                            'gemini-3.6-flash',
                             contents
                         )
 
@@ -555,7 +555,7 @@ if api_key:
 조건 충족 여부, 예상 점수, 감점 요인을 간결하게 채점해 주세요.
 """
                             contents_grade.append(prompt_grade)
-                            res_grade = generate_content_with_retry(client, 'gemini-2.0-flash', contents_grade)
+                            res_grade = generate_content_with_retry(client, 'gemini-3.6-flash', contents_grade)
 
                             if res_grade is not None:
                                 st.session_state['grading_result'] = res_grade.text
@@ -617,7 +617,7 @@ if api_key:
 
                         res_memo_grade = generate_content_with_retry(
                             client,
-                            'gemini-2.0-flash',
+                            'gemini-3.6-flash',
                             contents
                         )
 
