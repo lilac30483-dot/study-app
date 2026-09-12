@@ -30,6 +30,29 @@ if 'material_mode' not in st.session_state: st.session_state['material_mode'] = 
 if 'saved_api_key' not in st.session_state: st.session_state['saved_api_key'] = ""
 
 # ==========================================
+# 🛠️ 429 무료 API 과부하 방지용 자동 재시도 함수 (절대 삭제 금지)
+# ==========================================
+def generate_content_with_retry(client, model_name, contents, config=None, max_retries=4):
+    for attempt in range(max_retries):
+        try:
+            if config:
+                return client.models.generate_content(model=model_name, contents=contents, config=config)
+            else:
+                return client.models.generate_content(model=model_name, contents=contents)
+        except Exception as e:
+            error_msg = str(e)
+            # 429 과부하 에러가 발생한 경우
+            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 5  # 5초, 10초, 15초 대기 시간 증가
+                    st.warning(f"⏳ 무료 API 일시적 과부하(429) 발생. {wait_time}초 대기 후 자동으로 재시도합니다... (시도 {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    raise e # 최대 재시도 횟수를 넘으면 에러 발생
+            else:
+                raise e # 429가 아닌 다른 에러는 즉시 발생
+
+# ==========================================
 # ❓ 질문하기 전용 화면 (Q&A 모드)
 # ==========================================
 if st.session_state['qna_mode']:
@@ -48,8 +71,9 @@ if st.session_state['qna_mode']:
             with st.spinner("인터넷을 검색하며 답변을 작성하고 있습니다..."):
                 try:
                     config_qna = types.GenerateContentConfig(tools=[{"google_search": {}}])
-                    res_qna = client.models.generate_content(
-                        model='gemini-3.5-flash', contents=user_question, config=config_qna
+                    # 429 방지 함수 적용 (버전은 3.5 유지)
+                    res_qna = generate_content_with_retry(
+                        client, 'gemini-3.5-flash', user_question, config=config_qna
                     )
                     st.success("답변이 도착했습니다!")
                     st.markdown("### 💡 AI 답변")
@@ -111,14 +135,17 @@ if st.session_state['material_mode']:
                     contents_mat.append(prompt_complex)
 
                     config_mat = types.GenerateContentConfig(tools=[{"google_search": {}}])
-                    res_mat = client.models.generate_content(
-                        model='gemini-3.5-flash', contents=contents_mat, config=config_mat
+                    
+                    # 429 방지 함수 적용 (버전은 3.5 유지)
+                    res_mat = generate_content_with_retry(
+                        client, 'gemini-3.5-flash', contents_mat, config=config_mat
                     )
+                    
                     st.session_state['generated_complex_material'] = res_mat.text
                     st.success("고퀄리티 복합 양식 학습 자료가 성공적으로 생성되었습니다!")
                     
                 except Exception as e:
-                    st.error(f"과부하(429) 또는 오류가 발생했습니다. 잠시 후 다시 시도해 주세요: {e}")
+                    st.error(f"과부하 대기 시간 초과 또는 오류가 발생했습니다: {e}")
         else:
             st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
             
@@ -182,7 +209,6 @@ if api_key:
                             if ref_img is not None: contents_base.append(ref_img)
                             contents_base.append(f"[참고 텍스트]: {ref_text_input}\n[수행평가 안내지]: {guide_text}")
 
-                            # 4번 호출하던 것을 1번으로 통합 호출하여 429 에러 예방
                             prompt_combined = """
                             위 수행평가 안내지와 참고자료를 분석하여 다음 4가지 항목을 작성해 주세요.
                             [🚨매우 중요🚨] 각 항목의 사이에는 반드시 `===구분선===` 이라는 텍스트를 정확히 입력하여 내용을 나누어 주세요.
@@ -196,9 +222,9 @@ if api_key:
                             4. 추천 미디어 검색어: 핵심 주제와 관련된 키워드를 '유튜브 검색어: [키워드]\n이미지 검색어: [키워드]' 형식으로 추출.
                             """
                             
-                            res_combined = client.models.generate_content(
-                                model='gemini-3.5-flash', 
-                                contents=contents_base + [prompt_combined]
+                            # 429 방지 함수 적용 (버전은 3.5 유지)
+                            res_combined = generate_content_with_retry(
+                                client, 'gemini-3.5-flash', contents_base + [prompt_combined]
                             )
                             
                             parts = [p.strip() for p in res_combined.text.split('===구분선===')]
@@ -216,7 +242,7 @@ if api_key:
                             st.success("✅ 실전 문제 및 대비 자료가 성공적으로 생성되었습니다!")
                             
                         except Exception as e:
-                            st.error(f"과부하(429) 오류가 발생했습니다. 10초 정도 기다렸다가 다시 시도해 주세요: {e}")
+                            st.error(f"과부하 대기 시간 초과 또는 오류가 발생했습니다: {e}")
                 else:
                     st.warning("안내지와 참고자료를 모두 입력해 주세요.")
                     
@@ -256,7 +282,8 @@ if api_key:
                         if memo_text.strip(): contents.append(memo_text)
                         contents.append(prompt_memo)
 
-                        res_memo = client.models.generate_content(model='gemini-3.5-flash', contents=contents)
+                        # 429 방지 함수 적용 (버전은 3.5 유지)
+                        res_memo = generate_content_with_retry(client, 'gemini-3.5-flash', contents)
                         
                         st.session_state['memo_subject'] = subject
                         st.session_state['memo_eng_mode'] = eng_mode
@@ -310,7 +337,9 @@ if api_key:
                         사용자의 답안을 채점해 주세요. 1. 조건 충족 여부 2. 예상 점수 3. 감점 요인 및 보완 모델
                         """
                         contents_grade.append(prompt_grade)
-                        res_grade = client.models.generate_content(model='gemini-3.5-flash', contents=contents_grade)
+                        
+                        # 429 방지 함수 적용 (버전은 3.5 유지)
+                        res_grade = generate_content_with_retry(client, 'gemini-3.5-flash', contents_grade)
                         st.session_state['grading_result'] = res_grade.text
                 else:
                     st.warning("답안을 먼저 입력해 주세요.")
@@ -351,7 +380,8 @@ if api_key:
                         if memo_text.strip(): contents.append(memo_text)
                         contents.append(prompt_memo_grade)
 
-                        res_memo_grade = client.models.generate_content(model='gemini-3.5-flash', contents=contents)
+                        # 429 방지 함수 적용 (버전은 3.5 유지)
+                        res_memo_grade = generate_content_with_retry(client, 'gemini-3.5-flash', contents)
                         st.session_state['memo_grading_result'] = res_memo_grade.text
                     except Exception as e:
                         st.error(f"채점 중 오류가 발생했습니다: {e}")
