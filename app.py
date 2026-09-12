@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용
+# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정)
 # ==========================================
 st.markdown("""
 <style>
@@ -47,7 +47,23 @@ st.markdown("""
     .stButton > button[kind="primary"]:hover {
         background-color: #2B6CB0;
     }
+    
+    /* 우측 하단 버전 표시 고정 스타일 */
+    .version-label {
+        position: fixed;
+        bottom: 10px;
+        right: 15px;
+        color: #A0AEC0;
+        font-size: 14px;
+        font-weight: bold;
+        z-index: 9999;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 4px 8px;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
 </style>
+<div class="version-label">v 1.0</div>
 """, unsafe_allow_html=True)
 
 
@@ -205,16 +221,17 @@ if st.session_state['material_mode']:
             use_container_width=True
         )
 
+    # 🚨 [여기 수정!] 백년전쟁 지우고 원래 심플한 예시로 롤백!
     mat_topic = st.text_area(
         "1. 교재로 만들 핵심 주제나 원본 텍스트",
         height=120,
-        placeholder="예: 백년전쟁과 잔다르크"
+        placeholder="예: 교과서 본문이나 참고할 지문을 붙여넣으세요. (선택 사항)"
     )
 
     mat_request = st.text_area(
         "2. 추가 요청사항 (선택 사항)",
         height=120,
-        placeholder="예: 잔다르크의 활약상을 시간 순서대로 정리해줘."
+        placeholder="예: 핵심 내용만 알아보기 쉽게 요약해줘."
     )
 
     if st.button("✨ 학습 자료 생성하기", type="primary", use_container_width=True):
@@ -231,7 +248,7 @@ if st.session_state['material_mode']:
                     if mat_img is not None:
                         contents_mat.append(mat_img)
 
-                    # 🚨 [여기서부터 완벽하게 수정됨!] 불필요한 멘트 원천 차단 및 <br> 태그 금지 🚨
+                    # 🚨 [완벽 제어 + 이미지 키워드 추출 추가] 
                     prompt_complex = """
 당신은 1타 강사급 교재 제작 전문가입니다.
 제공된 자료를 바탕으로 '순수 개념 학습 및 암기용 핵심 노트'를 만드세요.
@@ -241,6 +258,7 @@ if st.session_state['material_mode']:
 2. 오직 '핵심 개념', '배경', '전개 과정', '의의' 등 순수한 교과 내용만 요약하세요.
 3. [매우 중요] 마크다운 표(`|`)를 작성할 때 내부에 `<br>` 같은 HTML 태그를 절대 사용하지 마세요. 줄바꿈이 필요하면 문장을 나누거나 쉼표(,)로만 연결하세요.
 4. 인사말 없이 바로 제목(예: # [핵심 개념 노트] 주제명)부터 시작하세요.
+5. 문서의 맨 마지막 줄에는 반드시 `[추천 이미지 검색어]: 검색키워드` 형식으로, 이 주제를 시각적으로 이해하는 데 가장 도움이 될 만한 핵심 검색어 1개를 적어주세요.
 """
                     if mat_topic.strip():
                         prompt_complex += f"\n[주제/내용]: {mat_topic}"
@@ -252,7 +270,7 @@ if st.session_state['material_mode']:
 
                     config_mat = types.GenerateContentConfig(
                         max_output_tokens=2500,
-                        temperature=0.7 # 너무 창의적인 멘트를 막기 위해 온도를 낮춤
+                        temperature=0.7 
                     )
 
                     res_mat = generate_content_with_retry(
@@ -272,15 +290,33 @@ if st.session_state['material_mode']:
         else:
             st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
 
-    # 화면 텍스트 렌더링 유지 + 다운로드 버튼 유지
+    # 화면 텍스트 렌더링 유지 + 다운로드 버튼 유지 + 이미지 검색 링크 추가
     if 'generated_complex_material' in st.session_state:
         st.divider()
         st.markdown("### 📄 완성된 학습 노트")
-        st.markdown(st.session_state['generated_complex_material'])
+        
+        content = st.session_state['generated_complex_material']
+        
+        # [추천 이미지 검색어] 분리해서 링크 만들어주기
+        display_content = content
+        search_keyword = None
+        
+        if "[추천 이미지 검색어]:" in content:
+            parts = content.split("[추천 이미지 검색어]:")
+            display_content = parts[0].strip()
+            search_keyword = parts[1].strip().replace('`', '')
+            
+        st.markdown(display_content)
+        
+        # 이미지 추가해달라고 했던 요청 반영 (클릭하면 바로 검색결과 뜨게)
+        if search_keyword:
+            st.write("---")
+            img_url = f"https://www.google.com/search?tbm=isch&q={urllib.parse.quote(search_keyword)}"
+            st.markdown(f"🖼️ **시각 자료가 필요하다면?** 👉 [{search_keyword} 이미지 바로 검색하기]({img_url})")
 
         st.download_button(
             label="💾 자료 파일 다운로드 (.txt)",
-            data=st.session_state['generated_complex_material'].encode('utf-8-sig'),
+            data=display_content.encode('utf-8-sig'),
             file_name="study_material.txt",
             mime="text/plain",
             use_container_width=True
@@ -342,7 +378,6 @@ if api_key:
             placeholder="예: 교과서 본문이나 참고할 지문을 붙여넣으세요. (선택 사항)"
         )
 
-        # 예전 예시 문구로 롤백 유지
         guide_text = st.text_area(
             "2. 수행평가 안내지 입력",
             height=150,
@@ -354,7 +389,6 @@ if api_key:
         with col_m1:
             if st.button("📝 맞춤형 실전 문제 생성", use_container_width=True, type="primary"):
                 
-                # 텍스트를 안 쳐도, 안내지 사진만 올리면 조건이 충족되게 변경 유지
                 if guide_text.strip() or ref_text_input.strip() or ref_img is not None:
                     with st.spinner("과부하 방지를 위해 모든 자료를 통합 분석하고 있습니다..."):
                         try:
