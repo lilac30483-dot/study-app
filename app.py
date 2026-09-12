@@ -68,7 +68,6 @@ if 'saved_api_key' not in st.session_state:
 # 🛠️ 이미지 크기 최적화 및 회전 버그 해결
 # ==========================================
 def process_image(img):
-    # 1. 핸드폰 촬영 사진 회전(EXIF) 자동 보정
     try:
         img = ImageOps.exif_transpose(img)
     except Exception:
@@ -76,17 +75,15 @@ def process_image(img):
 
     img_copy = img.copy()
     
-    # 2. PNG 등의 투명도(RGBA) 모드를 RGB로 안전 변환
     if img_copy.mode in ("RGBA", "P"):
         img_copy = img_copy.convert("RGB")
         
-    # 3. 해상도를 500x500으로 축소하여 API 요청 토큰 대폭 절감
     img_copy.thumbnail((500, 500), Image.Resampling.LANCZOS)
     return img_copy
 
 
 # ==========================================
-# 🛠️ Gemini 오류 처리 및 스마트 재시도 함수 (gemini-3.6-flash 지정)
+# 🛠️ Gemini 오류 처리 및 스마트 재시도 함수 
 # ==========================================
 def generate_content_with_retry(
     client,
@@ -95,7 +92,6 @@ def generate_content_with_retry(
     config=None,
     max_retries=3
 ):
-    # 기본 Config가 없으면 토큰 폭주 방지 기본값(최대 2048 토큰) 적용
     if config is None:
         config = types.GenerateContentConfig(
             max_output_tokens=2048,
@@ -114,17 +110,16 @@ def generate_content_with_retry(
         except Exception as e:
             error_msg = str(e)
             
-            # 1분당 토큰/요청 한도 초과(429 / RESOURCE_EXHAUSTED)시 백오프 대기 후 재시도
             if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "rate limit" in error_msg.lower():
                 if attempt < max_retries - 1:
-                    wait_time = (attempt + 1) * 4  # 4초, 8초 대기
-                    st.warning(f"⏳ 순간 요청 한도(RPM/TPM) 초과입니다. {wait_time}초 후 자동 재시도합니다... ({attempt + 1}/{max_retries})")
+                    wait_time = (attempt + 1) * 4  
+                    st.warning(f"⏳ 순간 요청 한도 초과. 과부하 방지를 위해 {wait_time}초 후 재시도합니다... ({attempt + 1}/{max_retries})")
                     time.sleep(wait_time)
                 else:
-                    st.error("🚨 순간 요청 한도(1분당 토큰 수)를 초과했습니다. 약 1분 후 다시 시도해 주세요.")
+                    st.error("🚨 API 과부하 상태입니다. 잠시 후 다시 시도해 주세요.")
                     return None
             elif "quota" in error_msg.lower() or "billing" in error_msg.lower():
-                st.error("🚨 일일 API 무료 할당량이 소진되었습니다. 내일 다시 시도하거나 새 API 키를 입력해 주세요.")
+                st.error("🚨 일일 API 할당량이 소진되었습니다.")
                 return None
             else:
                 st.error(f"⚠️ API 호출 중 오류가 발생했습니다: {error_msg}")
@@ -160,16 +155,10 @@ if st.session_state['qna_mode']:
 
             with st.spinner("답변을 작성하고 있습니다..."):
                 try:
-                    config_qna = types.GenerateContentConfig(
-                        max_output_tokens=2048,
-                        temperature=0.7
-                    )
-
                     res_qna = generate_content_with_retry(
                         client,
                         'gemini-3.6-flash',
-                        user_question,
-                        config=config_qna
+                        user_question
                     )
 
                     if res_qna is not None:
@@ -196,7 +185,7 @@ if st.session_state['material_mode']:
         st.session_state['material_mode'] = False
         st.rerun()
 
-    st.info("핵심 개념과 요약을 깔끔하게 정리한 학습 노트를 제작합니다.")
+    st.info("핵심 개념과 요약을 깔끔하게 정리한 순수 학습 노트를 제작합니다.")
 
     mat_img_file = st.file_uploader(
         "🖼️ 참고 사진/자료 업로드 (선택 사항)",
@@ -242,14 +231,16 @@ if st.session_state['material_mode']:
                     if mat_img is not None:
                         contents_mat.append(mat_img)
 
+                    # [수정됨] 억지로 붙던 수행평가 관련 내용 생성을 완전히 차단
                     prompt_complex = """
 당신은 교재 제작 전문가입니다.
-제공된 자료로 '고품질 핵심 학습 자료'를 만드세요.
+제공된 자료를 바탕으로 '순수 개념 학습 및 암기용 핵심 노트'를 만드세요.
 
 [작성 규칙]
 1. 주요 개념, 배경, 핵심 사건, 의의를 명확히 구조화하세요.
 2. 중요한 비교 항목이나 과정은 마크다운 표(`|`)로 작성하세요.
 3. 중요 개념은 글머리 기호(`-`)로 보기 쉽게 정리하세요.
+4. [매우 중요] '수행평가 대비 가이드', '실전 문제', '평가 기준' 등 수행평가와 관련된 내용은 절대 포함하지 마세요. 오직 순수한 학습 내용만 요약해야 합니다.
 """
                     if mat_topic.strip():
                         prompt_complex += f"\n[주제/내용]: {mat_topic}"
@@ -281,6 +272,7 @@ if st.session_state['material_mode']:
         else:
             st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
 
+    # [수정됨] 화면 텍스트 렌더링 유지 + 다운로드 버튼 유지
     if 'generated_complex_material' in st.session_state:
         st.divider()
         st.markdown("### 📄 완성된 학습 노트")
@@ -347,30 +339,40 @@ if api_key:
             "1. 참고 텍스트",
             value=ref_text,
             height=150,
-            placeholder="교과서 본문이나 참고할 지문을 붙여넣으세요."
+            placeholder="예: 교과서 본문이나 참고할 지문을 붙여넣으세요. (선택 사항)"
         )
 
+        # [수정됨] 예전 예시 문구로 롤백
         guide_text = st.text_area(
-            "2. 수행평가 안내지 입력 (필수)",
+            "2. 수행평가 안내지 입력",
             height=150,
-            placeholder="예: '주제: 환경 오염의 해결 방안', 조건: 원인과 결과를 포함하여 500자 내외로 논술할 것."
+            placeholder="예: 수행평가 주제, 평가 기준, 유의사항 등을 입력하세요. (사진으로 첨부한 경우 비워두셔도 됩니다.)"
         )
 
         col_m1, col_m2 = st.columns(2)
 
         with col_m1:
             if st.button("📝 맞춤형 실전 문제 생성", use_container_width=True, type="primary"):
-                if guide_text.strip() and (ref_text_input.strip() or ref_img is not None):
+                
+                # [수정됨] 텍스트를 안 쳐도, 안내지 사진만 올리면 조건이 충족되게 변경 (강제 필수 해제)
+                if guide_text.strip() or ref_text_input.strip() or ref_img is not None:
                     with st.spinner("과부하 방지를 위해 모든 자료를 통합 분석하고 있습니다..."):
                         try:
                             contents_base = []
                             if ref_img is not None:
                                 contents_base.append(ref_img)
 
-                            contents_base.append(f"[자료]: {ref_text_input}\n[안내지]: {guide_text}")
+                            input_text = ""
+                            if ref_text_input.strip():
+                                input_text += f"[자료]: {ref_text_input}\n"
+                            if guide_text.strip():
+                                input_text += f"[안내지]: {guide_text}\n"
+
+                            if input_text:
+                                contents_base.append(input_text)
 
                             prompt_combined = """
-위 안내지와 자료를 분석하여 4가지 항목을 작성해 주세요.
+위 내용을 바탕으로 4가지 항목을 작성해 주세요.
 각 항목 사이에는 반드시 `===구분선===` 텍스트를 넣어 분리하세요.
 
 1. 핵심 요약 자료 (간결하게)
@@ -408,7 +410,7 @@ if api_key:
                         except Exception as e:
                             st.error(f"오류가 발생했습니다: {e}")
                 else:
-                    st.warning("안내지와 참고자료를 모두 입력해 주세요.")
+                    st.warning("안내지 텍스트, 참고 텍스트, 또는 사진 자료 중 하나 이상을 입력해 주세요.")
 
         with col_m2:
             if st.button("📑 고퀄리티 교재 제작실 가기", use_container_width=True):
@@ -516,7 +518,7 @@ if api_key:
             media_text = st.session_state.get('media_info', '')
             st.write(media_text)
             st.write("---")
-            st.write("📌 **바로가기 링크**")
+            st.write("📌 **바로가기 링크** (과부하 방지를 위해 직접 검색 링크를 제공합니다)")
 
             for line in [l.strip() for l in media_text.split('\n') if l.strip()]:
                 if ":" in line:
@@ -642,3 +644,4 @@ if api_key:
 
 else:
     st.info("👈 왼쪽 사이드바에 Gemini API 키를 입력해 주세요.")
+
