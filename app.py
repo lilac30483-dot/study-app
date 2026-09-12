@@ -2,9 +2,8 @@ import streamlit as st
 from google import genai
 from google.genai import types
 import urllib.parse
-from PIL import Image
+from PIL import Image, ImageOps
 import time
-import re
 
 st.set_page_config(
     page_title="수행평가 대비 프로그램",
@@ -66,65 +65,70 @@ if 'saved_api_key' not in st.session_state:
 
 
 # ==========================================
-# 🛠️ 이미지 크기 최적화 및 투명도 버그 해결
+# 🛠️ 이미지 크기 최적화 및 회전 버그 해결
 # ==========================================
 def process_image(img):
+    # 1. 핸드폰 촬영 사진 회전(EXIF) 자동 보정
+    try:
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        pass
+
     img_copy = img.copy()
     
-    # 🚨 핵심 수정: PNG 등의 투명도(RGBA)가 있으면 AI가 사진을 인식하지 못하는 버그 원천 차단
+    # 2. PNG 등의 투명도(RGBA) 모드를 RGB로 안전 변환
     if img_copy.mode in ("RGBA", "P"):
         img_copy = img_copy.convert("RGB")
         
-    # 해상도를 500x500으로 더 줄여서 API 요청 데이터 크기를 대폭 감소시킵니다.
+    # 3. 해상도를 500x500으로 축소하여 API 요청 토큰 대폭 절감
     img_copy.thumbnail((500, 500), Image.Resampling.LANCZOS)
     return img_copy
 
 
 # ==========================================
-# 🛠️ Gemini 오류 처리 및 재시도 함수 
+# 🛠️ Gemini 오류 처리 및 스마트 재시도 함수 (gemini-3.6-flash 지정)
 # ==========================================
 def generate_content_with_retry(
     client,
-    model_name,
-    contents,
+    model_name='gemini-3.6-flash',
+    contents=None,
     config=None,
-    max_retries=2
+    max_retries=3
 ):
+    # 기본 Config가 없으면 토큰 폭주 방지 기본값(최대 2048 토큰) 적용
+    if config is None:
+        config = types.GenerateContentConfig(
+            max_output_tokens=2048,
+            temperature=0.7
+        )
+
     for attempt in range(max_retries):
         try:
-            if config:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=contents,
-                    config=config
-                )
-            else:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=contents
-                )
+            response = client.models.generate_content(
+                model=model_name,
+                contents=contents,
+                config=config
+            )
             return response
 
         except Exception as e:
             error_msg = str(e)
             
-            if "quota" in error_msg.lower() or "billing" in error_msg.lower():
-                st.error(
-                    "🚨 API 일일 무료 사용량을 모두 소진했습니다.\n\n"
-                    "대기해도 해결되지 않으므로, 내일 다시 시도하거나 구글 클라우드에서 새로운 API 키를 발급받아 주세요."
-                )
-                return None
-
-            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+            # 1분당 토큰/요청 한도 초과(429 / RESOURCE_EXHAUSTED)시 백오프 대기 후 재시도
+            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg or "rate limit" in error_msg.lower():
                 if attempt < max_retries - 1:
-                    wait_time = 5
-                    st.warning(f"⏳ 일시적인 요청 지연입니다. {wait_time}초 후 다시 시도합니다... ({attempt + 1}/{max_retries})")
+                    wait_time = (attempt + 1) * 4  # 4초, 8초 대기
+                    st.warning(f"⏳ 순간 요청 한도(RPM/TPM) 초과입니다. {wait_time}초 후 자동 재시도합니다... ({attempt + 1}/{max_retries})")
                     time.sleep(wait_time)
                 else:
-                    st.error("🚨 API 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.")
+                    st.error("🚨 순간 요청 한도(1분당 토큰 수)를 초과했습니다. 약 1분 후 다시 시도해 주세요.")
                     return None
+            elif "quota" in error_msg.lower() or "billing" in error_msg.lower():
+                st.error("🚨 일일 API 무료 할당량이 소진되었습니다. 내일 다시 시도하거나 새 API 키를 입력해 주세요.")
+                return None
             else:
-                raise e
+                st.error(f"⚠️ API 호출 중 오류가 발생했습니다: {error_msg}")
+                return None
 
     return None
 
@@ -140,11 +144,7 @@ if st.session_state['qna_mode']:
         st.session_state['qna_mode'] = False
         st.rerun()
 
-    st.info(
-        "수행평가 내용, 암기 안 되는 부분, 기타 궁금한 점을 "
-        "인공지능에게 자유롭게 질문해 보세요. "
-        "(🌐 인터넷 실시간 검색이 지원됩니다)"
-    )
+    st.info("수행평가 내용, 암기 안 되는 부분, 기타 궁금한 점을 자유롭게 질문해 보세요.")
 
     user_question = st.text_area(
         "질문 입력",
@@ -158,13 +158,13 @@ if st.session_state['qna_mode']:
         if api_key and user_question.strip():
             client = genai.Client(api_key=api_key)
 
-            with st.spinner("인터넷을 검색하며 답변을 작성하고 있습니다..."):
+            with st.spinner("답변을 작성하고 있습니다..."):
                 try:
                     config_qna = types.GenerateContentConfig(
-                        tools=[{"google_search": {}}]
+                        max_output_tokens=2048,
+                        temperature=0.7
                     )
 
-                    # ✅ 에러 메시지의 권장 사항에 맞춰 최신 3.6 모델 적용
                     res_qna = generate_content_with_retry(
                         client,
                         'gemini-3.6-flash',
@@ -186,20 +186,17 @@ if st.session_state['qna_mode']:
 
 
 # ==========================================
-# 📄 복합 양식 학습 자료 제작 전용 화면
+# 📄 학습 자료 제작 전용 화면
 # ==========================================
 if st.session_state['material_mode']:
 
-    st.title("📑 고퀄리티 복합 양식 교재 제작실")
+    st.title("📑 고퀄리티 학습 자료 제작실")
 
     if st.button("⬅️ 메인 화면으로 돌아가기"):
         st.session_state['material_mode'] = False
         st.rerun()
 
-    st.info(
-        "글자와 인터넷 실제 사진/도표가 어우러진 "
-        "진정한 복합 양식 학습 노트를 제작합니다."
-    )
+    st.info("핵심 개념과 요약을 깔끔하게 정리한 학습 노트를 제작합니다.")
 
     mat_img_file = st.file_uploader(
         "🖼️ 참고 사진/자료 업로드 (선택 사항)",
@@ -222,16 +219,16 @@ if st.session_state['material_mode']:
     mat_topic = st.text_area(
         "1. 교재로 만들 핵심 주제나 원본 텍스트",
         height=120,
-        placeholder="예: 고등학교 통합과학 - 빅뱅 우주론과 기본 입자의 생성"
+        placeholder="예: 백년전쟁과 잔다르크"
     )
 
     mat_request = st.text_area(
         "2. 추가 요청사항 (선택 사항)",
         height=120,
-        placeholder="예: 원소 생성 과정을 시간 순서대로 표로 정리하고, 이해를 돕기 위한 우주 배경 복사 사진을 본문에 넣어줘."
+        placeholder="예: 잔다르크의 활약상을 시간 순서대로 정리해줘."
     )
 
-    if st.button("✨ 복합 양식 학습 자료 생성하기 (인터넷 사진+텍스트)", type="primary", use_container_width=True):
+    if st.button("✨ 학습 자료 생성하기", type="primary", use_container_width=True):
         api_key = st.session_state.get('saved_api_key', '')
 
         if api_key and (mat_topic.strip() or mat_img is not None):
@@ -247,16 +244,15 @@ if st.session_state['material_mode']:
 
                     prompt_complex = """
 당신은 교재 제작 전문가입니다.
-제공된 자료로 '고품질 복합 양식 학습 자료'를 만드세요.
+제공된 자료로 '고품질 핵심 학습 자료'를 만드세요.
 
-[규칙]
-1. 구글 검색을 통해 주제와 연관된 실제 인터넷 이미지 URL을 1~2개 찾아
-`![설명](URL)` 형식으로 글 사이에 삽입하세요.
-2. 특수문자 선 긋기(ASCII Art) 금지.
-3. 내용 시각화는 마크다운 표와 글머리 기호만 사용하세요.
+[작성 규칙]
+1. 주요 개념, 배경, 핵심 사건, 의의를 명확히 구조화하세요.
+2. 중요한 비교 항목이나 과정은 마크다운 표(`|`)로 작성하세요.
+3. 중요 개념은 글머리 기호(`-`)로 보기 쉽게 정리하세요.
 """
                     if mat_topic.strip():
-                        prompt_complex += f"\n[내용]: {mat_topic}"
+                        prompt_complex += f"\n[주제/내용]: {mat_topic}"
 
                     if mat_request.strip():
                         prompt_complex += f"\n[요청사항]: {mat_request}"
@@ -264,7 +260,8 @@ if st.session_state['material_mode']:
                     contents_mat.append(prompt_complex)
 
                     config_mat = types.GenerateContentConfig(
-                        tools=[{"google_search": {}}]
+                        max_output_tokens=2500,
+                        temperature=0.7
                     )
 
                     res_mat = generate_content_with_retry(
@@ -276,7 +273,7 @@ if st.session_state['material_mode']:
 
                     if res_mat is not None:
                         st.session_state['generated_complex_material'] = res_mat.text
-                        st.success("고퀄리티 복합 양식 학습 자료가 성공적으로 생성되었습니다!")
+                        st.success("학습 자료가 성공적으로 생성되었습니다!")
 
                 except Exception as e:
                     st.error(f"오류가 발생했습니다: {e}")
@@ -286,13 +283,13 @@ if st.session_state['material_mode']:
 
     if 'generated_complex_material' in st.session_state:
         st.divider()
-        st.markdown("### 📄 완성된 복합 양식 학습 노트")
+        st.markdown("### 📄 완성된 학습 노트")
         st.markdown(st.session_state['generated_complex_material'])
 
         st.download_button(
             label="💾 자료 파일 다운로드 (.txt)",
             data=st.session_state['generated_complex_material'].encode('utf-8-sig'),
-            file_name="complex_study_material.txt",
+            file_name="study_material.txt",
             mime="text/plain",
             use_container_width=True
         )
@@ -414,7 +411,7 @@ if api_key:
                     st.warning("안내지와 참고자료를 모두 입력해 주세요.")
 
         with col_m2:
-            if st.button("📑 고퀄리티 복합 양식 교재 제작실 가기", use_container_width=True):
+            if st.button("📑 고퀄리티 교재 제작실 가기", use_container_width=True):
                 st.session_state['material_mode'] = True
                 st.rerun()
 
@@ -645,4 +642,3 @@ if api_key:
 
 else:
     st.info("👈 왼쪽 사이드바에 Gemini API 키를 입력해 주세요.")
-
