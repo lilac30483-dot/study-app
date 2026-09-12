@@ -3,6 +3,7 @@ from google import genai
 from google.genai import types
 import urllib.parse
 from PIL import Image
+import time
 
 st.set_page_config(page_title="수행평가 대비 프로그램", layout="centered", page_icon="📝")
 
@@ -116,7 +117,12 @@ if st.session_state['material_mode']:
         if api_key and (mat_topic.strip() or mat_img is not None):
             client = genai.Client(api_key=api_key)
             
+            # 오류 발생 시 이전 잔여 데이터로 인한 UI 오작동 방지용 초기화
+            st.session_state.pop('generated_complex_material', None)
+            st.session_state.pop('generated_complex_image', None)
+            
             with st.spinner("글자와 그림이 완벽하게 어우러진 최고급 요약 교재를 작성 중입니다... (약 10~15초 소요)"):
+                is_text_success = False
                 # 1. 텍스트 요약 자료 생성 (인터넷 검색 포함)
                 try:
                     contents_mat = []
@@ -151,30 +157,33 @@ if st.session_state['material_mode']:
                         config=config_mat
                     )
                     st.session_state['generated_complex_material'] = res_mat.text
+                    is_text_success = True
                     
                 except Exception as e:
                     st.error(f"텍스트 생성 중 오류 발생: {e}")
 
-                # 2. 주제와 연관된 AI 일러스트 생성 (Imagen 3 모델)
-                try:
-                    st.toast("요약 노트에 들어갈 맞춤형 삽화를 그리는 중입니다 🎨")
-                    image_prompt = f"'{mat_topic}'의 핵심 내용을 학생이 이해하기 쉽게 표현한 깔끔한 교육용 일러스트, 교과서 스타일, 플랫 디자인" if mat_topic else "교육용 깔끔한 요약 일러스트, 플랫 디자인"
-                    
-                    res_img = client.models.generate_images(
-                        model='imagen-3.0-generate-001',
-                        prompt=image_prompt,
-                        config=types.GenerateImagesConfig(
-                            number_of_images=1,
-                            aspect_ratio="16:9"
+                # 2. 주제와 연관된 AI 일러스트 생성 (Imagen 3 모델) - 429 에러 방지 대기 시간 추가
+                if is_text_success:
+                    time.sleep(1)
+                    try:
+                        st.toast("요약 노트에 들어갈 맞춤형 삽화를 그리는 중입니다 🎨")
+                        image_prompt = f"'{mat_topic}'의 핵심 내용을 학생이 이해하기 쉽게 표현한 깔끔한 교육용 일러스트, 교과서 스타일, 플랫 디자인" if mat_topic else "교육용 깔끔한 요약 일러스트, 플랫 디자인"
+                        
+                        res_img = client.models.generate_images(
+                            model='imagen-3.0-generate-001',
+                            prompt=image_prompt,
+                            config=types.GenerateImagesConfig(
+                                number_of_images=1,
+                                aspect_ratio="16:9"
+                            )
                         )
-                    )
-                    if res_img.generated_images:
-                        st.session_state['generated_complex_image'] = res_img.generated_images[0].image.image_bytes
-                except Exception as e:
-                    st.warning("일러스트 생성에 실패하여 텍스트 자료만 제공됩니다.")
-                    st.session_state.pop('generated_complex_image', None)
-                    
-                st.success("고퀄리티 학습 자료가 성공적으로 생성되었습니다!")
+                        if res_img.generated_images:
+                            st.session_state['generated_complex_image'] = res_img.generated_images[0].image.image_bytes
+                    except Exception as e:
+                        st.warning("일러스트 생성에 실패하여 텍스트 자료만 제공됩니다.")
+                        st.session_state.pop('generated_complex_image', None)
+                        
+                    st.success("고퀄리티 학습 자료가 성공적으로 생성되었습니다!")
         else:
             st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
             
@@ -202,7 +211,7 @@ if st.session_state['material_mode']:
     st.stop()
 
 # ==========================================
-# 📝 메인 화면 시작 (기존과 동일)
+# 📝 메인 화면 시작
 # ==========================================
 st.title("📝 수행평가 대비 프로그램")
 
@@ -257,9 +266,13 @@ if api_key:
                             res_material = client.models.generate_content(model='gemini-3.5-flash', contents=contents_base + [prompt_material])
                             st.session_state['study_material'] = res_material.text
 
+                            time.sleep(1)  # 429 에러 방지용 대기
+
                             prompt_tips = "위 자료를 바탕으로 고득점 꿀팁과 감점 예방 주의사항을 분석해 주세요."
                             res_tips = client.models.generate_content(model='gemini-3.5-flash', contents=contents_base + [prompt_tips])
                             st.session_state['result_tips'] = res_tips.text
+
+                            time.sleep(1)  # 429 에러 방지용 대기
 
                             prompt_q = """
                             위 수행평가 안내지와 참고자료를 분석하여 실제 평가에 딱 맞는 실전 문제를 출제해 주세요.
@@ -272,6 +285,8 @@ if api_key:
                             st.session_state['ref_text_input'] = ref_text_input
                             st.session_state['ref_img'] = ref_img
                             st.session_state['guide_text'] = guide_text
+
+                            time.sleep(1)  # 429 에러 방지용 대기
 
                             prompt_media = "위 자료의 핵심 주제와 관련된 검색 키워드를 '유튜브 검색어: [키워드]\n이미지 검색어: [키워드]' 형식으로 추출해 주세요."
                             res_media = client.models.generate_content(model='gemini-3.5-flash', contents=contents_base + [prompt_media])
