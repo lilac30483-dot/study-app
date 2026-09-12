@@ -94,34 +94,51 @@ if st.session_state['material_mode']:
         
     st.info("글 정보와 그림(시각적 도표/구조화) 정보가 함께 어우러진 복합 양식 학습 자료를 제작하고 파일로 다운로드할 수 있습니다.")
     
-    mat_topic = st.text_area("1. 자료의 주제 또는 원본 텍스트/안내지 내용", height=120, placeholder="어떤 수행평가나 내용을 위한 자료인가요?")
+    # [수정됨] 사진 업로드 기능 추가
+    mat_img_file = st.file_uploader("🖼️ 참고 사진 업로드 (선택 사항)", type=["jpg", "jpeg", "png"], key="mat_img")
+    mat_img = None
+    if mat_img_file is not None:
+        mat_img = Image.open(mat_img_file)
+        st.image(mat_img, caption="업로드된 사진", use_container_width=True)
+    
+    # [수정됨] 텍스트 입력창 안내 문구 변경 (사진 첨부 시 비워둬도 됨)
+    mat_topic = st.text_area("1. 자료의 주제 또는 원본 텍스트/안내지 내용 (사진을 첨부했다면 비워둬도 됩니다)", height=120, placeholder="어떤 수행평가나 내용을 위한 자료인가요?")
     mat_request = st.text_area("2. 자료를 만들 때 반영했으면 하는 요청사항 (작성 방식, 포함할 내용 등)", height=120, placeholder="예: 표와 핵심 요약 글을 섞어서 보기 쉽게 만들어줘.")
     
     if st.button("✨ 복합 양식 자료 생성하기", type="primary", use_container_width=True):
         api_key = st.session_state.get('saved_api_key', '')
-        if api_key and mat_topic.strip():
+        # [수정됨] 텍스트가 있거나, 사진이 첨부되었을 때 작동하도록 조건 변경
+        if api_key and (mat_topic.strip() or mat_img is not None):
             client = genai.Client(api_key=api_key)
             with st.spinner("글 정보와 시각적 구조를 담은 복합 양식 자료를 구성 중입니다..."):
                 try:
-                    prompt_complex = f"""
-                    다음 내용을 바탕으로 학생이 수행평가 대비에 완벽히 활용할 수 있는 '복합 양식 학습 자료'를 작성해 주세요.
-                    [주제 및 내용]
-                    {mat_topic}
-                    [추가 요청사항]
-                    {mat_request}
+                    contents_mat = []
+                    # 사진이 있으면 contents 리스트에 추가
+                    if mat_img is not None:
+                        contents_mat.append(mat_img)
+                        
+                    prompt_complex = "다음 제공된 자료(사진 및 텍스트)를 바탕으로 학생이 수행평가 대비에 완벽히 활용할 수 있는 '복합 양식 학습 자료'를 작성해 주세요.\n"
                     
+                    if mat_topic.strip():
+                        prompt_complex += f"\n[주제 및 내용]\n{mat_topic}\n"
+                    if mat_request.strip():
+                        prompt_complex += f"\n[추가 요청사항]\n{mat_request}\n"
+                        
+                    prompt_complex += """
                     [조건]
                     1. 글 정보(설명, 핵심 개념)와 그림 정보(Markdown 표, 다이어그램 형태 구조화, 시각적 배치 안내 등)를 조화롭게 섞은 복합 양식으로 작성할 것.
                     2. 절대 도움이 되며 핵심을 찌르는 내용으로 구성할 것.
                     3. HTML 태그 없이 깔끔한 마크다운 형식으로 작성할 것.
                     """
-                    res_mat = client.models.generate_content(model='gemini-3.5-flash', contents=prompt_complex)
+                    contents_mat.append(prompt_complex)
+
+                    res_mat = client.models.generate_content(model='gemini-3.5-flash', contents=contents_mat)
                     st.session_state['generated_complex_material'] = res_mat.text
                     st.success("자료가 성공적으로 생성되었습니다!")
                 except Exception as e:
                     st.error(f"생성 중 오류 발생: {e}")
         else:
-            st.warning("주제나 내용을 입력해 주세요 (API 키 확인 필수).")
+            st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
             
     if 'generated_complex_material' in st.session_state:
         st.divider()
@@ -181,7 +198,8 @@ if api_key:
 
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            if st.button("🚀 맞춤형 실전 문제 생성", use_container_width=True, type="primary"):
+            # [수정됨] 로켓 이모티콘(🚀) -> 과녁 이모티콘(🎯)으로 변경
+            if st.button("🎯 맞춤형 실전 문제 생성", use_container_width=True, type="primary"):
                 if guide_text.strip() and (ref_text_input.strip() or ref_img is not None):
                     with st.spinner("수행평가 유형에 맞는 실전 문제를 생성 중입니다..."):
                         try:
@@ -200,7 +218,7 @@ if api_key:
                             res_tips = client.models.generate_content(model='gemini-3.5-flash', contents=contents_base + [prompt_tips])
                             st.session_state['result_tips'] = res_tips.text
 
-                            # 3) 상황 맞춤형 문제 생성 (글쓰기면 글쓰기 조건에 맞는 서술형/작문형 문제 출제)
+                            # 3) 상황 맞춤형 문제 생성
                             prompt_q = """
                             위 수행평가 안내지와 참고자료를 분석하여 실제 평가에 딱 맞는 실전 문제를 출제해 주세요.
                             [출제 원칙]
