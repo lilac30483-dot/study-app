@@ -231,16 +231,16 @@ if st.session_state['material_mode']:
                     if mat_img is not None:
                         contents_mat.append(mat_img)
 
-                    # [수정됨] 억지로 붙던 수행평가 관련 내용 생성을 완전히 차단
+                    # 🚨 [여기서부터 완벽하게 수정됨!] 불필요한 멘트 원천 차단 및 <br> 태그 금지 🚨
                     prompt_complex = """
-당신은 교재 제작 전문가입니다.
+당신은 1타 강사급 교재 제작 전문가입니다.
 제공된 자료를 바탕으로 '순수 개념 학습 및 암기용 핵심 노트'를 만드세요.
 
-[작성 규칙]
-1. 주요 개념, 배경, 핵심 사건, 의의를 명확히 구조화하세요.
-2. 중요한 비교 항목이나 과정은 마크다운 표(`|`)로 작성하세요.
-3. 중요 개념은 글머리 기호(`-`)로 보기 쉽게 정리하세요.
-4. [매우 중요] '수행평가 대비 가이드', '실전 문제', '평가 기준' 등 수행평가와 관련된 내용은 절대 포함하지 마세요. 오직 순수한 학습 내용만 요약해야 합니다.
+[🚨 절대 엄수 규칙 - 위반 시 시스템 오류 발생 🚨]
+1. '수행평가 대비', '가이드', '실전 문제', '평가 기준', '도움이 되길 바랍니다' 등 학습 내용 외의 멘트는 단 한 글자도 적지 마세요.
+2. 오직 '핵심 개념', '배경', '전개 과정', '의의' 등 순수한 교과 내용만 요약하세요.
+3. [매우 중요] 마크다운 표(`|`)를 작성할 때 내부에 `<br>` 같은 HTML 태그를 절대 사용하지 마세요. 줄바꿈이 필요하면 문장을 나누거나 쉼표(,)로만 연결하세요.
+4. 인사말 없이 바로 제목(예: # [핵심 개념 노트] 주제명)부터 시작하세요.
 """
                     if mat_topic.strip():
                         prompt_complex += f"\n[주제/내용]: {mat_topic}"
@@ -252,7 +252,7 @@ if st.session_state['material_mode']:
 
                     config_mat = types.GenerateContentConfig(
                         max_output_tokens=2500,
-                        temperature=0.7
+                        temperature=0.7 # 너무 창의적인 멘트를 막기 위해 온도를 낮춤
                     )
 
                     res_mat = generate_content_with_retry(
@@ -272,7 +272,7 @@ if st.session_state['material_mode']:
         else:
             st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
 
-    # [수정됨] 화면 텍스트 렌더링 유지 + 다운로드 버튼 유지
+    # 화면 텍스트 렌더링 유지 + 다운로드 버튼 유지
     if 'generated_complex_material' in st.session_state:
         st.divider()
         st.markdown("### 📄 완성된 학습 노트")
@@ -342,7 +342,7 @@ if api_key:
             placeholder="예: 교과서 본문이나 참고할 지문을 붙여넣으세요. (선택 사항)"
         )
 
-        # [수정됨] 예전 예시 문구로 롤백
+        # 예전 예시 문구로 롤백 유지
         guide_text = st.text_area(
             "2. 수행평가 안내지 입력",
             height=150,
@@ -354,7 +354,7 @@ if api_key:
         with col_m1:
             if st.button("📝 맞춤형 실전 문제 생성", use_container_width=True, type="primary"):
                 
-                # [수정됨] 텍스트를 안 쳐도, 안내지 사진만 올리면 조건이 충족되게 변경 (강제 필수 해제)
+                # 텍스트를 안 쳐도, 안내지 사진만 올리면 조건이 충족되게 변경 유지
                 if guide_text.strip() or ref_text_input.strip() or ref_img is not None:
                     with st.spinner("과부하 방지를 위해 모든 자료를 통합 분석하고 있습니다..."):
                         try:
