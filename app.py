@@ -66,31 +66,27 @@ if 'saved_api_key' not in st.session_state:
 
 
 # ==========================================
-# 🛠️ 이미지 크기 최적화
+# 🛠️ 이미지 크기 최적화 (요청량/토큰 최소화)
 # ==========================================
 def process_image(img):
     img_copy = img.copy()
-    img_copy.thumbnail((800, 800), Image.Resampling.LANCZOS)
+    # 해상도를 500x500으로 더 줄여서 API 요청 데이터 크기를 대폭 감소시킵니다.
+    img_copy.thumbnail((500, 500), Image.Resampling.LANCZOS)
     return img_copy
 
 
 # ==========================================
-# 🛠️ Gemini 429 오류 자동 재시도 함수
+# 🛠️ Gemini 오류 처리 및 재시도 함수 (불필요한 대기 제거)
 # ==========================================
 def generate_content_with_retry(
     client,
     model_name,
     contents,
     config=None,
-    max_retries=5
+    max_retries=2  # 재시도 횟수 대폭 축소
 ):
-
-    last_error = None
-
     for attempt in range(max_retries):
-
         try:
-
             if config:
                 response = client.models.generate_content(
                     model=model_name,
@@ -102,53 +98,30 @@ def generate_content_with_retry(
                     model=model_name,
                     contents=contents
                 )
-
             return response
 
         except Exception as e:
-
-            last_error = e
             error_msg = str(e)
+            
+            # 1. 일일 할당량 완전 소진(Quota Exceeded)인 경우 -> 기다려도 해결 안 되므로 즉시 중단
+            if "quota" in error_msg.lower() or "billing" in error_msg.lower():
+                st.error(
+                    "🚨 API 일일 무료 사용량을 모두 소진했습니다.\n\n"
+                    "대기해도 해결되지 않으므로, 내일 다시 시도하거나 구글 클라우드에서 새로운 API 키를 발급받아 주세요."
+                )
+                return None
 
-            # 429 / RESOURCE_EXHAUSTED 오류
+            # 2. 단순 일시적 과부하(429)인 경우 -> 짧게만 대기
             if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-
                 if attempt < max_retries - 1:
-
-                    # 재시도할수록 대기 시간 증가
-                    wait_times = [
-                        15,
-                        30,
-                        60,
-                        120,
-                        180
-                    ]
-
-                    wait_time = wait_times[
-                        min(attempt, len(wait_times) - 1)
-                    ]
-
-                    st.warning(
-                        f"⏳ Gemini API 사용량이 일시적으로 많습니다.\n\n"
-                        f"{wait_time}초 후 자동으로 다시 시도합니다... "
-                        f"(시도 {attempt + 1}/{max_retries})"
-                    )
-
+                    wait_time = 5  # 5초만 대기
+                    st.warning(f"⏳ 일시적인 요청 지연입니다. {wait_time}초 후 다시 시도합니다... ({attempt + 1}/{max_retries})")
                     time.sleep(wait_time)
-
                 else:
-
-                    st.error(
-                        "🚨 Gemini API 무료 할당량이 현재 초과되었습니다.\n\n"
-                        "잠시 후 다시 시도해 주세요.\n\n"
-                        "자동 재시도를 모두 시도했지만 "
-                        "현재 API 사용 제한이 해제되지 않았습니다."
-                    )
-
+                    st.error("🚨 API 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.")
                     return None
-
             else:
-                # 429 이외의 오류는 그대로 표시
+                # 다른 종류의 오류는 그대로 출력
                 raise e
 
     return None
@@ -1400,4 +1373,5 @@ else:
 
     st.info(
         "👈 왼쪽 사이드바에 Gemini API 키를 입력해 주세요."
-                    )
+    )
+
