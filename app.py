@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.1)
+# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.2)
 # ==========================================
 st.markdown("""
 <style>
@@ -63,7 +63,7 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 </style>
-<div class="version-label">v 1.1</div>
+<div class="version-label">v 1.2</div>
 """, unsafe_allow_html=True)
 
 
@@ -191,7 +191,7 @@ if st.session_state['qna_mode']:
 
 
 # ==========================================
-# 📄 학습 자료 제작 전용 화면 (팁 및 부가설명 완전 제거 + 이미지 포함)
+# 📄 순수 학습 자료 제작실 (과부하 방지 가벼운 설정 + 이미지 및 개념만 포함)
 # ==========================================
 if st.session_state['material_mode']:
 
@@ -201,7 +201,7 @@ if st.session_state['material_mode']:
         st.session_state['material_mode'] = False
         st.rerun()
 
-    st.info("오직 핵심 내용과 개념 요약, 그리고 시각 자료(이미지)가 포함된 깔끔한 학습 노트를 제작합니다.")
+    st.info("오직 개념 요약과 시각 자료(이미지)가 포함된 깔끔한 학습 노트를 제작합니다.")
 
     mat_img_file = st.file_uploader(
         "🖼️ 참고 사진/자료 업로드 (선택 사항)",
@@ -230,7 +230,7 @@ if st.session_state['material_mode']:
     mat_request = st.text_area(
         "2. 추가 요청사항 (선택 사항)",
         height=120,
-        placeholder="예: 특정 부분 위주로 자세히 정리해줘."
+        placeholder="예: 특정 개념 위주로 깔끔하게 정리해줘."
     )
 
     if st.button("✨ 학습 자료 생성하기", type="primary", use_container_width=True):
@@ -240,23 +240,23 @@ if st.session_state['material_mode']:
             client = genai.Client(api_key=api_key)
             st.session_state.pop('generated_complex_material', None)
 
-            with st.spinner("자료를 분석하고 교재를 작성 중입니다..."):
+            with st.spinner("과부하 없이 빠르게 학습 노트를 작성 중입니다..."):
                 try:
                     contents_mat = []
 
                     if mat_img is not None:
                         contents_mat.append(mat_img)
 
-                    # 🚨 팁 및 부가 설명 절대 금지 + 구글 검색을 통한 이미지 포함 프롬프트
+                    # 🚨 팁, 문제, 부가 설명 완전 차단 + 가벼운 설정 (검색 도구 미사용으로 429 방지)
                     prompt_complex = """
 당신은 최고의 교재 제작 전문가입니다.
-제공된 자료와 주제를 바탕으로 오직 '순수 학습 자료 및 핵심 노트'만 작성하세요.
+제공된 자료와 주제를 바탕으로 오직 '순수 학습 자료 및 핵심 개념 노트'만 작성하세요.
 
-[🚨 절대 엄수 규칙 - 위반 시 시스템 오류 발생 🚨]
-1. 수행평가 꿀팁, 평가 기준, 감점 예방 주의사항, 실전 문제, 응원 메시지, 인사말 등 학습 내용 외의 멘트나 팁은 단 한 글자도 적지 마세요.
-2. 오직 핵심 개념과 요약 내용만 작성하세요.
-3. [매우 중요] 마크다운 표(`|`)를 작성할 때 내부에 `<br>` 같은 HTML 태그를 절대 사용하지 마세요.
-4. 내용 중간중간에 이해를 도울 수 있는 관련 이미지 URL을 구글 검색을 통해 찾아 마크다운 이미지 형식(`![설명](이미지URL)`)으로 자연스럽게 포함해 주세요. (반드시 접속 가능한 유효한 이미지 URL이어야 합니다.)
+[🚨 절대 엄수 규칙 - 위반 시 오류 발생 🚨]
+1. 수행평가 꿀팁, 평가 기준, 감점 예방 주의사항, 실전 문제, 응원 메시지, 인사말 등 학습 내용 외의 멘트는 단 한 글자도 적지 마세요.
+2. 오직 핵심 개념과 요약 내용만 깔끔하게 작성하세요.
+3. 마크다운 표(`|`) 내부에 `<br>` 같은 HTML 태그를 절대 사용하지 마세요.
+4. 내용 중간에 이해를 도울 수 있는 관련 이미지(위키미디어 등 안정적인 공개 이미지 URL)를 마크다운 형식(`![설명](이미지URL)`)으로 자연스럽게 포함해 주거나, 적절한 이미지 키워드와 함께 배치해 주세요.
 5. 불필요한 서두 없이 바로 제목부터 시작하세요.
 """
                     if mat_topic.strip():
@@ -267,11 +267,10 @@ if st.session_state['material_mode']:
 
                     contents_mat.append(prompt_complex)
 
-                    # 구글 검색(Grounding) 도구 추가로 이미지 및 정확한 정보 탐색 지원
+                    # 검색 도구를 빼고 기본 config만 사용하여 과부하(429) 원천 차단
                     config_mat = types.GenerateContentConfig(
                         max_output_tokens=2500,
-                        temperature=0.7,
-                        tools=[types.Tool(google_search=types.GoogleSearch())]
+                        temperature=0.7
                     )
 
                     res_mat = generate_content_with_retry(
