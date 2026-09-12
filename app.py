@@ -62,16 +62,24 @@ if st.session_state['qna_mode']:
         st.session_state['qna_mode'] = False
         st.rerun()
     
-    st.info("수행평가 내용, 암기 안 되는 부분, 기타 궁금한 점을 인공지능에게 자유롭게 질문해 보세요.")
+    st.info("수행평가 내용, 암기 안 되는 부분, 기타 궁금한 점을 인공지능에게 자유롭게 질문해 보세요. (🌐 인터넷 실시간 검색이 지원됩니다)")
     user_question = st.text_area("질문 입력", height=150, placeholder="여기에 질문을 적어주세요.")
     
     if st.button("답변 받기", type="primary"):
         api_key = st.session_state.get('saved_api_key', '')
         if api_key and user_question.strip():
             client = genai.Client(api_key=api_key)
-            with st.spinner("답변을 작성하고 있습니다..."):
+            with st.spinner("인터넷을 검색하며 답변을 작성하고 있습니다..."):
                 try:
-                    res_qna = client.models.generate_content(model='gemini-3.5-flash', contents=user_question)
+                    # 인터넷 검색 도구 활성화
+                    config_qna = types.GenerateContentConfig(
+                        tools=[{"google_search": {}}]
+                    )
+                    res_qna = client.models.generate_content(
+                        model='gemini-3.5-flash', 
+                        contents=user_question,
+                        config=config_qna
+                    )
                     st.success("답변이 도착했습니다!")
                     st.markdown("### 💡 AI 답변")
                     st.write(res_qna.text)
@@ -92,7 +100,7 @@ if st.session_state['material_mode']:
         st.session_state['material_mode'] = False
         st.rerun()
         
-    st.info("텍스트, 마크다운 표, 인용구 등을 조화롭게 사용하여 한눈에 쏙 들어오는 '실전 학습용 요약 노트'를 제작합니다.")
+    st.info("글자와 그림이 함께 어우러진 진정한 '복합 양식' 실전 학습 노트를 제작합니다.")
     
     mat_img_file = st.file_uploader("🖼️ 참고 사진/자료 업로드 (선택 사항)", type=["jpg", "jpeg", "png"], key="mat_img")
     mat_img = None
@@ -100,34 +108,32 @@ if st.session_state['material_mode']:
         mat_img = Image.open(mat_img_file)
         st.image(mat_img, caption="업로드된 사진", use_container_width=True)
     
-    mat_topic = st.text_area("1. 교재로 만들 핵심 주제나 원본 텍스트 (사진을 첨부했다면 비워둬도 됩니다)", height=120, placeholder="어떤 내용을 학생들이 쉽게 공부하게 만들고 싶나요?")
+    mat_topic = st.text_area("1. 교재로 만들 핵심 주제나 원본 텍스트", height=120, placeholder="예: 백년전쟁과 잔 다르크의 역할")
     mat_request = st.text_area("2. 강조하고 싶은 포인트 등 추가 요청 (선택 사항)", height=120, placeholder="예: 역사적 사건의 원인과 결과를 표로 비교해서 만들어줘.")
     
-    if st.button("✨ 복합 양식 학습 자료 생성하기", type="primary", use_container_width=True):
+    if st.button("✨ 복합 양식 학습 자료 생성하기 (이미지+텍스트)", type="primary", use_container_width=True):
         api_key = st.session_state.get('saved_api_key', '')
         if api_key and (mat_topic.strip() or mat_img is not None):
             client = genai.Client(api_key=api_key)
-            with st.spinner("글자와 구조가 완벽하게 어우러진 최고급 요약 교재를 작성 중입니다..."):
+            
+            with st.spinner("글자와 그림이 완벽하게 어우러진 최고급 요약 교재를 작성 중입니다... (약 10~15초 소요)"):
+                # 1. 텍스트 요약 자료 생성 (인터넷 검색 포함)
                 try:
                     contents_mat = []
                     if mat_img is not None:
                         contents_mat.append(mat_img)
                     
-                    # [개선됨] 프롬프트를 대대적으로 수정하여 폰트 깨짐 방지 및 학습 자료 본연의 기능 강화
                     prompt_complex = """
                     당신은 최고의 일타 강사이자 교재 제작 전문가입니다.
                     다음 제공된 자료(사진 및 텍스트)를 바탕으로, 학생들이 직관적으로 이해하고 암기할 수 있는 '고품질 복합 양식 학습 자료(핵심 요약 노트)'를 만들어주세요.
 
                     [🚨 매우 중요한 주의사항 - 폰트 깨짐 완벽 차단]
-                    1. ┌, ─, ┐, │, └, ┘ 와 같은 '특수문자를 활용한 선 긋기나 텍스트 박스(ASCII Art)'는 폰트 깨짐을 유발하므로 **절대 단 하나도 사용하지 마세요.**
-                    2. 시각화나 도식화가 필요할 때는 오직 **표(Markdown Table)**, **글머리 기호(-)**, **인용구(>)**만을 사용하여 모바일/PC 어디서든 깨지지 않고 깔끔하게 보이도록 구조화하세요.
+                    1. ┌, ─, ┐, │, └, ┘ 와 같은 '특수문자를 활용한 선 긋기나 텍스트 박스(ASCII Art)'는 절대 단 하나도 사용하지 마세요.
+                    2. 시각화나 도식화가 필요할 때는 오직 **표(Markdown Table)**, **글머리 기호(-)**, **인용구(>)**만을 사용하세요.
 
                     [📝 내용 구성 핵심 규칙]
-                    1. '수행평가 평가 기준'이나 '과제 안내'를 설명하는 글을 절대 적지 마세요. 
-                    2. 학생이 **직접 읽고, 공부하고, 외워야 할 '실제 교과 내용과 개념'**을 깊이 있고 이해하기 쉽게 정리해 주세요.
-                    3. 단순히 줄글만 나열하지 말고, **핵심 키워드 설명 -> 구조화된 표 -> 요약 포인트** 순서로 적절히 배치하여 시각적으로 지루하지 않게(복합 양식) 구성하세요.
-                    4. 적절한 이모티콘(💡, 📌, ⚠️, 🔎 등)을 사용하여 가독성과 집중도를 높여주세요.
-                    5. HTML 태그 없이 순수하고 표준적인 마크다운(Markdown) 문법만 사용하세요.
+                    1. 학생이 직접 읽고, 공부하고, 외워야 할 '실제 교과 내용과 개념'을 정리해 주세요.
+                    2. 핵심 키워드 설명 -> 구조화된 표 -> 요약 포인트 순서로 적절히 배치하여 시각적으로 지루하지 않게 구성하세요.
                     """
                     
                     if mat_topic.strip():
@@ -137,23 +143,57 @@ if st.session_state['material_mode']:
                         
                     contents_mat.append(prompt_complex)
 
-                    res_mat = client.models.generate_content(model='gemini-3.5-flash', contents=contents_mat)
+                    # 팩트 체크를 위한 인터넷 검색 허용
+                    config_mat = types.GenerateContentConfig(tools=[{"google_search": {}}])
+                    res_mat = client.models.generate_content(
+                        model='gemini-3.5-flash', 
+                        contents=contents_mat,
+                        config=config_mat
+                    )
                     st.session_state['generated_complex_material'] = res_mat.text
-                    st.success("고퀄리티 학습 자료가 성공적으로 생성되었습니다!")
+                    
                 except Exception as e:
-                    st.error(f"생성 중 오류 발생: {e}")
+                    st.error(f"텍스트 생성 중 오류 발생: {e}")
+
+                # 2. 주제와 연관된 AI 일러스트 생성 (Imagen 3 모델)
+                try:
+                    st.toast("요약 노트에 들어갈 맞춤형 삽화를 그리는 중입니다 🎨")
+                    image_prompt = f"'{mat_topic}'의 핵심 내용을 학생이 이해하기 쉽게 표현한 깔끔한 교육용 일러스트, 교과서 스타일, 플랫 디자인" if mat_topic else "교육용 깔끔한 요약 일러스트, 플랫 디자인"
+                    
+                    res_img = client.models.generate_images(
+                        model='imagen-3.0-generate-001',
+                        prompt=image_prompt,
+                        config=types.GenerateImagesConfig(
+                            number_of_images=1,
+                            aspect_ratio="16:9"
+                        )
+                    )
+                    if res_img.generated_images:
+                        st.session_state['generated_complex_image'] = res_img.generated_images[0].image.image_bytes
+                except Exception as e:
+                    st.warning("일러스트 생성에 실패하여 텍스트 자료만 제공됩니다.")
+                    st.session_state.pop('generated_complex_image', None)
+                    
+                st.success("고퀄리티 학습 자료가 성공적으로 생성되었습니다!")
         else:
             st.warning("주제(내용)를 입력하거나 참고 사진을 첨부해 주세요 (API 키 확인 필수).")
             
+    # 생성된 자료 출력
     if 'generated_complex_material' in st.session_state:
         st.divider()
-        st.markdown("### 📄 생성된 복합 양식 자료 미리보기")
-        # 출력 결과 렌더링
+        st.markdown("### 📄 완성된 복합 양식 학습 노트")
+        
+        # 1. 생성된 이미지 먼저 출력
+        if 'generated_complex_image' in st.session_state:
+            st.image(st.session_state['generated_complex_image'], caption="AI가 제작한 맞춤형 학습 일러스트", use_container_width=True)
+            st.divider()
+            
+        # 2. 텍스트 노트 출력
         st.markdown(st.session_state['generated_complex_material'])
         
         st.download_button(
             label="💾 자료 파일 다운로드 (.txt)",
-            data=st.session_state['generated_complex_material'].encode('utf-8-sig'), # 한글 깨짐 방지용 UTF-8-SIG 인코딩 적용
+            data=st.session_state['generated_complex_material'].encode('utf-8-sig'),
             file_name="complex_study_material.txt",
             mime="text/plain",
             use_container_width=True
@@ -162,7 +202,7 @@ if st.session_state['material_mode']:
     st.stop()
 
 # ==========================================
-# 📝 메인 화면 시작
+# 📝 메인 화면 시작 (기존과 동일)
 # ==========================================
 st.title("📝 수행평가 대비 프로그램")
 
@@ -204,7 +244,6 @@ if api_key:
 
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            # [수정됨] 🚀, 🎯 -> 📝 로 변경
             if st.button("📝 맞춤형 실전 문제 생성", use_container_width=True, type="primary"):
                 if guide_text.strip() and (ref_text_input.strip() or ref_img is not None):
                     with st.spinner("수행평가 유형에 맞는 실전 문제를 생성 중입니다..."):
@@ -226,7 +265,6 @@ if api_key:
                             위 수행평가 안내지와 참고자료를 분석하여 실제 평가에 딱 맞는 실전 문제를 출제해 주세요.
                             [출제 원칙]
                             - 안내지에서 요구하는 수행평가 방식에 정확히 부합하는 서술형/작문형 문제를 출제하세요.
-                            - 자료에 없는 내용을 억지로 가정해서 풀게 만들지 마세요.
                             - 정답이나 해설은 절대 출력하지 말고 오직 '문제 내용'만 출력하세요.
                             """
                             res_q = client.models.generate_content(model='gemini-3.5-flash', contents=contents_base + [prompt_q])
@@ -267,23 +305,21 @@ if api_key:
         uploaded_img = st.file_uploader("암기할 사진 업로드 (.jpg, .png)", type=["jpg", "jpeg", "png"])
         memo_text = st.text_area("또는 텍스트 직접 입력", height=150, placeholder="외울 내용을 여기에 바로 적어도 됩니다.")
         
-        # [수정됨] 🎯 -> 📝 로 변경
         if st.button("📝 암기 테스트 문제 출제", use_container_width=True, type="primary"):
             if uploaded_img is not None or memo_text.strip():
                 with st.spinner("오류 없는 깔끔한 암기 테스트를 만드는 중입니다..."):
                     try:
                         contents = []
-                        
                         if subject == "과학/수학 (공식 암기)":
-                            prompt_memo = "제공된 내용을 바탕으로 '과학/수학 공식 암기 테스트'용 주관식 빈칸/완성 문제를 3문제 출제해 주세요. HTML 태그나 특수기호 없이 깔끔하게 텍스트로만 작성하고 정답은 미리 적지 마세요."
+                            prompt_memo = "제공된 내용을 바탕으로 '과학/수학 공식 암기 테스트'용 주관식 빈칸/완성 문제를 3문제 출제해 주세요. 정답은 미리 적지 마세요."
                         elif subject == "역사 (단어 및 개념 암기)":
-                            prompt_memo = "제공된 내용을 바탕으로 '역사 단어 및 개념 테스트'용 문제를 3문제 출제해 주세요. HTML 태그 없이 깔끔한 텍스트로만 작성하고 정답은 미리 적지 마세요."
+                            prompt_memo = "제공된 내용을 바탕으로 '역사 단어 및 개념 테스트'용 문제를 3문제 출제해 주세요. 정답은 미리 적지 마세요."
                         elif subject == "영어 (지문 암기)" and eng_mode == "한글을 영어로 옮겨 적기 (영작)":
                             prompt_memo = "제공된 영어 지문을 바탕으로 한글 해석을 제시하고 영작하는 테스트 문제를 출제해 주세요. 정답은 미리 적지 마세요."
                         elif subject == "영어 (지문 암기)" and eng_mode == "음성으로 말하기 테스트 (Speaking)":
-                            prompt_memo = "지문의 핵심 개요나 첫 문장 힌트를 주고, '아래 마이크 버튼을 눌러 영어로 말해보세요'라는 안내를 텍스트로 깔끔하게 출력해 주세요."
+                            prompt_memo = "지문의 핵심 개요나 첫 문장 힌트를 주고, '아래 마이크 버튼을 눌러 영어로 말해보세요'라는 안내를 텍스트로 출력해 주세요."
                         else:
-                            prompt_memo = "제공된 내용을 바탕으로 암기 확인용 단답형 문제를 깔끔하게 출제해 주세요. 정답은 미리 적지 마세요."
+                            prompt_memo = "제공된 내용을 바탕으로 암기 확인용 단답형 문제를 출제해 주세요. 정답은 미리 적지 마세요."
 
                         if uploaded_img is not None:
                             uploaded_img.seek(0)
@@ -311,16 +347,16 @@ if api_key:
     if st.session_state.get('current_mode') == "일반" and mode == "일반 수행평가 준비" and 'practice_question' in st.session_state:
         st.divider()
         st.subheader("결과 확인 탭")
-        tab1, tab2, tab3, tab4 = st.tabs(["📚 요약 학습 자료", "✍️ 실전 문제 풀이 (답안 작성 및 예측)", "💡 평가 팁 및 주의사항", "🎥 추천 미디어"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📚 요약 학습 자료", "✍️ 실전 문제 풀이", "💡 평가 팁 및 주의사항", "🎥 추천 미디어"])
 
         with tab1:
             st.markdown(st.session_state.get('study_material', ''))
 
         with tab2:
             st.info(st.session_state.get('practice_question', ''))
-            user_ans = st.text_area("내 답안 작성 (요청받은 글쓰기 또는 서술형 답변을 작성하세요)", height=220)
+            user_ans = st.text_area("내 답안 작성", height=220)
             
-            if st.button("✨ AI 채점 및 예상 점 받기"):
+            if st.button("✨ AI 채점 및 예상 점수 받기"):
                 if user_ans.strip():
                     with st.spinner("AI가 답안을 정밀 채점하고 예상 점수를 계산하고 있습니다..."):
                         contents_grade = []
@@ -333,10 +369,7 @@ if api_key:
                         [참고자료 원문]: {st.session_state.get('ref_text_input', '')}
                         [수행평가 안내지 조건]: {st.session_state.get('guide_text', '')}
                         
-                        사용자의 답안을 채점해 주세요.
-                        1. 안내지 조건 충족 여부 및 상세 피드백
-                        2. 예상 수행평가 점수 (안내지 조건을 고려해 100점 만점 기준으로 예측)
-                        3. 감점 요인 및 보완해야 할 모범 답안
+                        사용자의 답안을 채점해 주세요. 1. 안내지 조건 충족 여부 2. 예상 수행평가 점수 3. 감점 요인 및 보완 모델
                         """
                         contents_grade.append(prompt_grade)
                         
@@ -398,15 +431,12 @@ if api_key:
                             prompt_memo_grade = f"""
                             [출제 문제]: {st.session_state['memo_test_q']}
                             사용자가 영어 지문을 직접 말한 음성 파일입니다. 원본과 대조하여 채점해 주세요.
-                            1. 성공 여부 판단
-                            2. 음성 인식 텍스트(STT)
-                            3. 틀린 부분 및 교정
                             """
                         else:
                             prompt_memo_grade = f"""
                             [출제된 암기 문제]: {st.session_state['memo_test_q']}
                             [사용자가 작성한 답안]: {user_memo_ans}
-                            원본 자료를 기준으로 정확히 채점하고 정답을 알려주세요.
+                            원본 자료를 기준으로 정확히 채점해 주세요.
                             """
 
                         if uploaded_img is not None:
