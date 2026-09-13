@@ -255,7 +255,10 @@ if st.session_state['material_mode']:
 [🚨 절대 엄수 규칙]
 1. 결과물은 반드시 완벽한 HTML 코드(`<!DOCTYPE html>...</html>`) 전체만 출력하세요. 중간에 코드가 잘리거나 생략되면 절대 안 됩니다. 마크다운 백틱(```html ... ```)이나 설명 글을 절대 붙이지 말고, 순수 HTML 문자열만 처음부터 끝까지 출력하세요.
 2. 내부 CSS 스타일을 포함하여 모바일과 PC 모두에서 예쁘고 깔끔하게 보이도록 디자인하세요.
-3. 문서 내에 이미지를 넣을 때는 엑박(깨짐 현상)이 뜨지 않도록, **Unsplash(https://images.unsplash.com/...) 등의 안정적이고 검증된 고화질 무료 이미지 URL**을 사용하거나, 이미지가 로드되지 않을 경우를 대비해 `onerror` 속성을 넣어 대체 스타일이나 텍스트가 표시되도록 구현해 주세요.
+3. 이미지 엑박(깨짐) 및 무관한 사진 출력을 방지하기 위해, 존재하지 않는 가짜 주소를 지어내지 마세요. 대신 해당 주제와 직결되는 구체적인 영어 프롬프트를 사용하여 실시간으로 관련 이미지를 생성하는 URL을 사용하세요:
+형식: `<img src="https://image.pollinations.ai/prompt/구체적인_영어_키워드_설명?width=800&height=400&nologo=true" alt="설명" onerror="this.style.display='none'">`
+(예: 프랑스와 영국의 전쟁 관련 챕터라면 src="https://image.pollinations.ai/prompt/The%20Hundred%20Years%20War%20between%20England%20and%20France?width=800&height=400&nologo=true")
+키워드는 반드시 관련 없는 사진이 나오지 않도록 챕터 주제에 맞는 상세한 영어 문장이나 단어로 작성해야 하며, 로드 실패 시 화면을 망치지 않도록 `onerror` 속성을 반드시 포함하세요.
 4. 수행평가 팁이나 불필요한 잡소리는 빼고, 오직 고품질의 순수 학습 개념 내용과 표, 목록, 이미지로만 문서를 채우세요.
 """
                     if mat_topic.strip():
@@ -484,7 +487,7 @@ if api_key:
                         elif subject == "역사 (단어 및 개념 암기)":
                             prompt_memo = "제공된 내용을 바탕으로 개념 확인 3문제 출제. 정답 제외."
                         elif subject == "영어 (지문 암기)" and eng_mode == "한글을 영어로 옮겨 적기 (영작)":
-                            prompt_memo = "영어 지문의 한글 해석을 제시하고 영작하는 문제 출제. 정답 제외."
+                            prompt_memo = "영어 지문을 완벽하게 암기해서 외웠는지 확인하는 영작 문제를 출제해 주세요. 정답 제외."
                         elif subject == "영어 (지문 암기)" and eng_mode == "음성으로 말하기 테스트 (Speaking)":
                             prompt_memo = "지문을 완벽하게 암기해서 외웠는지 확인하는 스피킹 테스트를 진행할 거야. 지문의 핵심 개요 힌트를 주고, '아래 마이크 버튼을 눌러 영어로 말해보세요'라는 안내 문구를 출력해 줘."
                         else:
@@ -667,3 +670,4 @@ if api_key:
 
 else:
     st.info("👈 왼쪽 사이드바에 Gemini API 키를 입력해 주세요.")
+
