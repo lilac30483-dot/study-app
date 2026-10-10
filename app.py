@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.4)
+# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.5)
 # ==========================================
 st.markdown("""
 <style>
@@ -63,7 +63,7 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 </style>
-<div class="version-label">v 1.4</div>
+<div class="version-label">v 1.5</div>
 """, unsafe_allow_html=True)
 
 
@@ -80,6 +80,9 @@ if 'qna_mode' not in st.session_state:
 
 if 'material_mode' not in st.session_state:
     st.session_state['material_mode'] = False
+
+if 'text_report_mode' not in st.session_state:
+    st.session_state['text_report_mode'] = False
 
 
 # ==========================================
@@ -158,7 +161,7 @@ if st.session_state['qna_mode']:
         st.session_state['qna_mode'] = False
         st.rerun()
 
-    st.info("수행평가 내용, 암기 안 되는 부분, 기타 궁금한 점을 자유롭게 질문해 보세요.")
+    st.info("수행평가 내용, 암기 안 되는 부분, 글쓰기 아이디어 등 궁금한 점을 자유롭게 질문해 보세요.")
 
     user_question = st.text_area(
         "질문 입력",
@@ -189,35 +192,103 @@ if st.session_state['qna_mode']:
 
 
 # ==========================================
-# 📄 복합양식 학습 자료 제작실 (다운로드 전용 고품질 HTML 교재 생성)
+# 📄 텍스트 중심 A4 리포트 자료 제작실 (신규 추가)
+# ==========================================
+if st.session_state['text_report_mode']:
+
+    st.title("📄 글로만 이루어진 A4 용지 학습/보고서 자료 제작실")
+
+    if st.button("⬅️ 메인 화면으로 돌아가기"):
+        st.session_state['text_report_mode'] = False
+        st.rerun()
+
+    st.info("💡 프린트나 제출용으로 적합한 **텍스트 중심의 깔끔한 A4 리포트 형식 자료**를 생성하여 다운로드하는 공간입니다.")
+
+    report_topic = st.text_area(
+        "1. 보고서 또는 학습 자료 주제 / 핵심 내용 입력",
+        height=150,
+        placeholder="예: 조선시대 실학의 발전 과정과 주요 학자들의 주장 정리"
+    )
+
+    report_style = st.selectbox(
+        "2. 문서 스타일 선택",
+        ["학습 개념 정리 노트", "수행평가 제출용 보고서 초안", "서술형 요약 정리본"]
+    )
+
+    if st.button("✨ A4 리포트 텍스트 파일 생성하기", type="primary", use_container_width=True):
+        if report_topic.strip():
+            st.session_state.pop('generated_text_report', None)
+
+            with st.spinner("A4 용지에 최적화된 고품질 텍스트 자료를 작성하고 있습니다..."):
+                try:
+                    prompt_report = f"""
+당신은 전문 학습 교재 및 보고서 작성 작가입니다.
+제공된 주제와 스타일에 맞춰 A4 용지에 인쇄하거나 읽기 좋은 '완벽한 텍스트 중심 학습/보고서 자료'를 작성해주세요.
+
+[문서 스타일]: {report_style}
+[주제/내용]: {report_topic}
+
+[작성 지침]
+1. 마크다운 형식으로 제목(#, ##), 불렛 포인트, 강조(`**`)를 활용하여 가독성을 극대화하세요.
+2. 서론 - 본론(핵심 개념 및 세부 내용) - 결론/요약 구조로 체계적으로 작성하세요.
+3. 불필요한 인사말이나 잡소리는 생략하고 즉시 활용할 수 있는 순수 학습/보고서 내용만 출력하세요.
+"""
+                    res_rep = generate_content_with_retry(
+                        model_name='gemini-3.6-flash',
+                        contents=prompt_report
+                    )
+
+                    if res_rep is not None:
+                        st.session_state['generated_text_report'] = res_rep.text.strip()
+                        st.success("🎉 A4 리포트 자료가 성공적으로 준비되었습니다!")
+
+                except Exception as e:
+                    st.error(f"오류가 발생했습니다: {e}")
+        else:
+            st.warning("주제 또는 핵심 내용을 입력해 주세요.")
+
+    if 'generated_text_report' in st.session_state:
+        st.divider()
+        st.markdown("### 👁️ 미리보기")
+        st.markdown(st.session_state['generated_text_report'])
+
+        st.download_button(
+            label="💾 A4 리포트 다운로드 (.txt)",
+            data=st.session_state['generated_text_report'].encode('utf-8'),
+            file_name="study_report.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+    st.stop()
+
+
+# ==========================================
+# 📑 복합양식 학습 자료 제작실 (HTML 다운로드)
 # ==========================================
 if st.session_state['material_mode']:
 
-    st.title("📑 복합양식 학습 자료 제작실")
+    st.title("📑 복합양식 학습 자료 제작실 (HTML)")
 
     if st.button("⬅️ 메인 화면으로 돌아가기"):
         st.session_state['material_mode'] = False
         st.rerun()
 
-    st.info("💡 이곳은 화면에 글을 띄우는 곳이 아닙니다! 핵심 개념과 이미지가 조화롭게 들어간 **복합양식 학습 자료(HTML 파일)**를 생성하여 다운로드하는 공간입니다.")
+    st.info("💡 핵심 개념과 이미지가 조화롭게 들어간 **복합양식 학습 자료(HTML 파일)**를 생성하여 다운로드하는 공간입니다.")
 
-    mat_img_file = st.file_uploader(
-        "🖼️ 참고 사진/자료 업로드 (선택 사항)",
+    mat_img_files = st.file_uploader(
+        "🖼️ 참고 사진/자료 업로드 (여러 장 선택 가능)",
         type=["jpg", "jpeg", "png"],
-        key="mat_img"
+        key="mat_imgs",
+        accept_multiple_files=True
     )
 
-    mat_img = None
-
-    if mat_img_file is not None:
-        raw_img = Image.open(mat_img_file)
-        mat_img = process_image(raw_img)
-
-        st.image(
-            mat_img,
-            caption="업로드된 사진 (최적화 완료)",
-            use_container_width=True
-        )
+    processed_mat_imgs = []
+    if mat_img_files:
+        for f in mat_img_files:
+            raw_img = Image.open(f)
+            processed_mat_imgs.append(process_image(raw_img))
+        st.success(f"총 {len(processed_mat_imgs)}개의 이미지가 업로드 및 최적화되었습니다.")
 
     mat_topic = st.text_area(
         "1. 교재로 만들 핵심 주제나 원본 텍스트",
@@ -232,27 +303,22 @@ if st.session_state['material_mode']:
     )
 
     if st.button("✨ 복합양식 학습 자료 파일 생성하기", type="primary", use_container_width=True):
-        if mat_topic.strip() or mat_img is not None:
+        if mat_topic.strip() or processed_mat_imgs:
             st.session_state.pop('generated_html_material', None)
 
             with st.spinner("시각 자료와 개념이 담긴 고품질 학습 자료 파일을 빌드하고 있습니다..."):
                 try:
-                    contents_mat = []
-
-                    if mat_img is not None:
-                        contents_mat.append(mat_img)
+                    contents_mat = list(processed_mat_imgs)
 
                     prompt_complex = """
 당신은 최고의 웹 교재 및 복합양식 학습 자료 디자이너입니다.
 제공된 자료와 주제를 바탕으로 사용자가 다운로드하여 웹브라우저로 열어볼 수 있는 '완벽한 단독 실행형 HTML 문서 코드'를 처음부터 끝까지 완성도 있게 작성하세요.
 
 [🚨 절대 엄수 규칙]
-1. 결과물은 반드시 완벽한 HTML 코드(`<!DOCTYPE html>...</html>`) 전체만 출력하세요. 중간에 코드가 잘리거나 생략되면 절대 안 됩니다. 마크다운 백틱(```html ... ```)이나 설명 글을 절대 붙이지 말고, 순수 HTML 문자열만 처음부터 끝까지 출력하세요.
+1. 결과물은 반드시 완벽한 HTML 코드(`<!DOCTYPE html>...</html>`) 전체만 출력하세요. 마크다운 백틱(```html ... ```)이나 설명 글을 절대 붙이지 마세요.
 2. 내부 CSS 스타일을 포함하여 모바일과 PC 모두에서 예쁘고 깔끔하게 보이도록 디자인하세요.
-3. 이미지 엑박(깨짐) 및 무관한 사진 출력을 방지하기 위해, 존재하지 않는 가짜 주소를 지어내지 마세요. 대신 해당 주제와 직결되는 구체적인 영어 프롬프트를 사용하여 실시간으로 관련 이미지를 생성하는 URL을 사용하세요:
+3. 이미지 엑박 방지를 위해 관련 주제의 영어 키워드 이미지를 사용하세요:
 형식: `<img src="https://image.pollinations.ai/prompt/구체적인_영어_키워드_설명?width=800&height=400&nologo=true" alt="설명" onerror="this.style.display='none'">`
-키워드는 반드시 관련 없는 사진이 나오지 않도록 챕터 주제에 맞는 상세한 영어 문장이나 단어로 작성해야 하며, 로드 실패 시 화면을 망치지 않도록 `onerror` 속성을 반드시 포함하세요.
-4. 수행평가 팁이나 불필요한 잡소리는 빼고, 오직 고품질의 순수 학습 개념 내용과 표, 목록, 이미지로만 문서를 채우세요.
 """
                     if mat_topic.strip():
                         prompt_complex += f"\n[주제/내용]: {mat_topic}"
@@ -262,15 +328,9 @@ if st.session_state['material_mode']:
 
                     contents_mat.append(prompt_complex)
 
-                    config_mat = types.GenerateContentConfig(
-                        max_output_tokens=8192,
-                        temperature=0.7
-                    )
-
                     res_mat = generate_content_with_retry(
                         model_name='gemini-3.6-flash',
-                        contents=contents_mat,
-                        config=config_mat
+                        contents=contents_mat
                     )
 
                     if res_mat is not None:
@@ -293,13 +353,11 @@ if st.session_state['material_mode']:
 
     if 'generated_html_material' in st.session_state:
         st.divider()
-        st.success("📥 아래 버튼을 눌러 학습 자료 파일을 다운로드하세요! (다운로드한 파일을 더블클릭하면 이미지가 포함된 완벽한 학습 교재를 볼 수 있습니다)")
+        st.success("📥 아래 버튼을 눌러 학습 자료 파일을 다운로드하세요!")
         
-        html_data = st.session_state['generated_html_material']
-
         st.download_button(
             label="💾 복합양식 학습 자료 다운로드 (.html)",
-            data=html_data.encode('utf-8'),
+            data=st.session_state['generated_html_material'].encode('utf-8'),
             file_name="study_material.html",
             mime="text/html",
             use_container_width=True
@@ -309,12 +367,9 @@ if st.session_state['material_mode']:
 
 
 # ==========================================
-# 📝 메인 화면 시작 (일반 수행평가 준비 & 암기 연습)
+# 📝 메인 화면 시작 (일반 수행평가 준비 & 암기 시험 연습)
 # ==========================================
 st.title("📝 수행평가 대비 프로그램")
-
-uploaded_img = None
-memo_text = ""
 
 mode = st.radio(
     "📌 기능을 선택하세요",
@@ -328,160 +383,165 @@ st.divider()
 # 1. 일반 수행평가 준비 모드
 # ==========================================
 if mode == "일반 수행평가 준비":
-    st.subheader("📄 참고 자료 및 안내지 입력")
+    st.subheader("📄 다중 참고 자료 및 안내지 입력")
 
-    uploaded_file = st.file_uploader(
-        "참고자료 업로드 (.txt, .jpg, .png)",
-        type=["txt", "jpg", "jpeg", "png"]
+    uploaded_files = st.file_uploader(
+        "참고자료 업로드 (텍스트 및 이미지 여러 장 선택 가능)",
+        type=["txt", "jpg", "jpeg", "png"],
+        accept_multiple_files=True
     )
 
-    ref_text = ""
-    ref_img = None
+    ref_texts_list = []
+    ref_imgs_list = []
 
-    if uploaded_file is not None:
-        if uploaded_file.name.lower().endswith('.txt'):
-            ref_text = uploaded_file.read().decode("utf-8")
-            st.success("텍스트 파일을 성공적으로 불러왔습니다.")
-        else:
-            raw_img = Image.open(uploaded_file)
-            ref_img = process_image(raw_img)
-            st.success("사진 자료를 성공적으로 불러왔습니다.")
-            st.image(ref_img, caption="업로드된 사진 (최적화 완료)", use_container_width=True)
+    if uploaded_files:
+        for file in uploaded_files:
+            if file.name.lower().endswith('.txt'):
+                ref_texts_list.append(file.read().decode("utf-8"))
+            else:
+                raw_img = Image.open(file)
+                ref_imgs_list.append(process_image(raw_img))
+        st.success(f"총 텍스트 파일 {len(ref_texts_list)}개, 이미지 {len(ref_imgs_list)}장이 성공적으로 업로드되었습니다.")
 
     ref_text_input = st.text_area(
-        "1. 참고 텍스트",
-        value=ref_text,
-        height=150,
-        placeholder="예: 교과서 본문이나 참고할 지문을 붙여넣으세요. (선택 사항)"
+        "1. 추가 참고 텍스트",
+        height=120,
+        placeholder="교과서 본문이나 추가 참고 지문을 입력하세요. (선택 사항)"
     )
 
     guide_text = st.text_area(
-        "2. 수행평가 안내지 입력",
-        height=150,
-        placeholder="예: 수행평가 주제, 평가 기준, 유의사항 등을 입력하세요. (사진으로 첨부한 경우 비워두셔도 됩니다.)"
+        "2. 수행평가 안내지 입력 (글쓰기 주제, 평가 기준 등)",
+        height=120,
+        placeholder="예: 보고서 작성 수행평가. 주제에 맞는 글쓰기 초안 작성 도움 및 평가 기준 충족 여부 확인 요청"
     )
 
-    col_m1, col_m2 = st.columns(2)
+    # 자료 제작실 바로가기 버튼들 (상단 배치)
+    col_mb1, col_mb2 = st.columns(2)
+    with col_mb1:
+        if st.button("📄 A4 리포트(글) 자료 제작실", use_container_width=True):
+            st.session_state['text_report_mode'] = True
+            st.rerun()
+    with col_mb2:
+        if st.button("📑 복합양식(HTML) 자료 제작실", use_container_width=True):
+            st.session_state['material_mode'] = True
+            st.rerun()
 
-    with col_m1:
-        if st.button("📝 맞춤형 실전 문제 생성", use_container_width=True, type="primary"):
-            
-            if guide_text.strip() or ref_text_input.strip() or ref_img is not None:
-                with st.spinner("과부하 방지를 위해 모든 자료를 통합 분석하고 있습니다..."):
-                    try:
-                        contents_base = []
-                        if ref_img is not None:
-                            contents_base.append(ref_img)
+    st.markdown("---")
 
-                        input_text = ""
-                        if ref_text_input.strip():
-                            input_text += f"[자료]: {ref_text_input}\n"
-                        if guide_text.strip():
-                            input_text += f"[안내지]: {guide_text}\n"
+    if st.button("📝 맞춤형 실전 문제 및 글쓰기 가이드 생성", use_container_width=True, type="primary"):
+        if guide_text.strip() or ref_text_input.strip() or ref_texts_list or ref_imgs_list:
+            with st.spinner("모든 자료를 통합 분석하여 수행평가 맞춤 가이드 및 문제를 생성하고 있습니다..."):
+                try:
+                    contents_base = list(ref_imgs_list)
 
-                        if input_text:
-                            contents_base.append(input_text)
+                    input_text = ""
+                    if ref_texts_list:
+                        for i, t in enumerate(ref_texts_list):
+                            input_text += f"[참고 텍스트 파일 {i+1}]:\n{t}\n\n"
+                    if ref_text_input.strip():
+                        input_text += f"[추가 참고 텍스트]:\n{ref_text_input}\n\n"
+                    if guide_text.strip():
+                        input_text += f"[수행평가 안내지/요청]:\n{guide_text}\n"
 
-                        prompt_combined = """
-위 내용을 바탕으로 4가지 항목을 작성해 주세요.
+                    if input_text:
+                        contents_base.append(input_text)
+
+                    prompt_combined = """
+제공된 다중 참고 자료와 안내지를 바탕으로 다음 4가지 항목을 작성해 주세요.
 각 항목 사이에는 반드시 `===구분선===` 텍스트를 넣어 분리하세요.
 
-1. 핵심 요약 자료 (간결하게)
+1. 핵심 개념 정리 및 수행평가 맞춤 글쓰기/설명 가이드 (글쓰기 수행평가인 경우 직접 훌륭한 예시 글이나 작성 방향을 상세히 제시해주세요)
 ===구분선===
 2. 감점 예방 주의사항 및 고득점 팁
 ===구분선===
-3. 실전 서술형/작문 문제 (정답 제외, 문제만 출력)
+3. 실전 서술형/작문 문제 (또는 핵심 객관식 문제 3문항 포함)
 ===구분선===
 4. 추천 미디어 키워드
 '유튜브 검색어: [키워드]
 이미지 검색어: [키워드]'
 형식으로 작성하세요.
 """
-                        res_combined = generate_content_with_retry(
-                            model_name='gemini-3.6-flash',
-                            contents=contents_base + [prompt_combined]
-                        )
+                    res_combined = generate_content_with_retry(
+                        model_name='gemini-3.6-flash',
+                        contents=contents_base + [prompt_combined]
+                    )
 
-                        if res_combined is not None:
-                            parts = [p.strip() for p in res_combined.text.split('===구분선===')]
-                            st.session_state['study_material'] = parts[0] if len(parts) > 0 else "요약 자료를 불러오지 못했습니다."
-                            st.session_state['result_tips'] = parts[1] if len(parts) > 1 else "팁 정보를 불러오지 못했습니다."
-                            st.session_state['practice_question'] = parts[2] if len(parts) > 2 else "문제를 생성하지 못했습니다."
-                            st.session_state['media_info'] = parts[3] if len(parts) > 3 else ""
-                            
-                            st.session_state['ref_text_input'] = ref_text_input
-                            st.session_state['ref_img'] = ref_img
-                            st.session_state['guide_text'] = guide_text
-                            st.session_state['grading_result'] = None
-                            st.session_state['current_mode'] = "일반"
-                            
-                            st.success("✅ 실전 문제 및 대비 자료가 성공적으로 생성되었습니다!")
+                    if res_combined is not None:
+                        parts = [p.strip() for p in res_combined.text.split('===구분선===')]
+                        st.session_state['study_material'] = parts[0] if len(parts) > 0 else "요약 자료를 불러오지 못했습니다."
+                        st.session_state['result_tips'] = parts[1] if len(parts) > 1 else "팁 정보를 불러오지 못했습니다."
+                        st.session_state['practice_question'] = parts[2] if len(parts) > 2 else "문제를 생성하지 못했습니다."
+                        st.session_state['media_info'] = parts[3] if len(parts) > 3 else ""
+                        
+                        st.session_state['ref_imgs_list'] = ref_imgs_list
+                        st.session_state['guide_text'] = guide_text
+                        st.session_state['grading_result'] = None
+                        st.session_state['current_mode'] = "일반"
+                        
+                        st.success("✅ 수행평가 맞춤 자료 및 문제가 성공적으로 생성되었습니다!")
 
-                    except Exception as e:
-                        st.error(f"오류가 발생했습니다: {e}")
-            else:
-                st.warning("안내지 텍스트, 참고 텍스트, 또는 사진 자료 중 하나 이상을 입력해 주세요.")
-
-    with col_m2:
-        if st.button("📑 복합양식 학습 자료 제작실 가기", use_container_width=True):
-            st.session_state['material_mode'] = True
-            st.rerun()
+                except Exception as e:
+                    st.error(f"오류가 발생했습니다: {e}")
+        else:
+            st.warning("안내지 텍스트, 참고 텍스트, 또는 사진 자료 중 하나 이상을 입력해 주세요.")
 
 # ==========================================
 # 2. 암기 시험 연습 모드
 # ==========================================
 elif mode == "암기 시험 연습":
-    st.subheader("🧠 암기 자료 첨부 및 세부 설정")
+    st.subheader("🧠 다중 암기 자료 첨부 및 세부 설정")
 
     subject = st.selectbox(
         "과목을 선택하세요",
-        ["과학/수학 (공식 암기)", "영어 (지문 암기)", "역사 (단어 및 개념 암기)", "기타 일반 암기"]
+        ["과학/수학 (공식 및 개념)", "영어 (지문 암기)", "역사 (단어 및 개념)", "기타 일반 암기"]
+    )
+
+    test_type = st.radio(
+        "출제 유형 선택",
+        ["주관식 / 서술형", "객관식 (4지선다)"]
     )
 
     eng_mode = None
     if subject == "영어 (지문 암기)":
         eng_mode = st.radio(
-            "테스트 방식을 선택하세요",
+            "영어 테스트 세부 방식",
             ["한글을 영어로 옮겨 적기 (영작)", "음성으로 말하기 테스트 (Speaking)"]
         )
 
-    uploaded_img_file = st.file_uploader(
-        "암기할 사진 업로드 (.jpg, .png)",
-        type=["jpg", "jpeg", "png"]
+    uploaded_img_files2 = st.file_uploader(
+        "암기할 사진 업로드 (여러 장 선택 가능)",
+        type=["jpg", "jpeg", "png"],
+        accept_multiple_files=True
     )
 
-    uploaded_img = None
-    if uploaded_img_file is not None:
-        raw_img2 = Image.open(uploaded_img_file)
-        uploaded_img = process_image(raw_img2)
+    processed_memo_imgs = []
+    if uploaded_img_files2:
+        for f in uploaded_img_files2:
+            raw_img = Image.open(f)
+            processed_memo_imgs.append(process_image(raw_img))
 
     memo_text = st.text_area(
-        "또는 텍스트 직접 입력",
-        height=150,
-        placeholder="외울 내용을 여기에 바로 적어도 됩니다."
+        "또는 암기할 텍스트 직접 입력",
+        height=130,
+        placeholder="외울 내용을 여기에 적어주세요."
     )
 
     if st.button("📝 암기 테스트 문제 출제", use_container_width=True, type="primary"):
-        if uploaded_img is not None or memo_text.strip():
+        if processed_memo_imgs or memo_text.strip():
             with st.spinner("암기 테스트를 만드는 중입니다..."):
                 try:
-                    contents = []
-                    if subject == "과학/수학 (공식 암기)":
-                        prompt_memo = "제공된 내용을 바탕으로 주관식 빈칸 3문제 출제. 정답 제외."
-                    elif subject == "역사 (단어 및 개념 암기)":
-                        prompt_memo = "제공된 내용을 바탕으로 개념 확인 3문제 출제. 정답 제외."
-                    elif subject == "영어 (지문 암기)" and eng_mode == "한글을 영어로 옮겨 적기 (영작)":
-                        prompt_memo = "영어 지문을 완벽하게 암기해서 외웠는지 확인하는 영작 문제를 출제해 주세요. 정답 제외."
-                    elif subject == "영어 (지문 암기)" and eng_mode == "음성으로 말하기 테스트 (Speaking)":
-                        prompt_memo = "지문을 완벽하게 암기해서 외웠는지 확인하는 스피킹 테스트를 진행할 거야. 지문의 핵심 개요 힌트를 주고, '아래 마이크 버튼을 눌러 영어로 말해보세요'라는 안내 문구를 출력해 줘."
-                    else:
-                        prompt_memo = "제공된 내용에 대한 단답형 문제를 출제해 주세요. 정답 제외."
-
-                    if uploaded_img is not None:
-                        contents.append(uploaded_img)
+                    contents = list(processed_memo_imgs)
                     if memo_text.strip():
                         contents.append(memo_text)
-                        
+
+                    if test_type == "객관식 (4지선다)":
+                        prompt_memo = "제공된 내용을 바탕으로 핵심 객관식 4지선다 문제 3문항을 출제해 주세요. (정답과 해설은 숨기고 문제만 출제)"
+                    else:
+                        if subject == "영어 (지문 암기)" and eng_mode == "음성으로 말하기 테스트 (Speaking)":
+                            prompt_memo = "지문을 완벽하게 암기했는지 확인하는 스피킹 테스트를 진행합니다. 핵심 개요 힌트를 주고 음성으로 말해보도록 안내하세요."
+                        else:
+                            prompt_memo = "제공된 내용을 바탕으로 핵심 암기 주관식/단답형 문제 3문항을 출제해 주세요. (정답 제외)"
+
                     contents.append(prompt_memo)
 
                     res_memo = generate_content_with_retry(
@@ -514,7 +574,7 @@ if (
     st.subheader("결과 확인 탭")
 
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📚 요약 학습 자료", "✍️ 실전 문제 풀이", "💡 평가 팁 및 주의사항", "🎥 추천 미디어"
+        "📚 요약 및 글쓰기 가이드", "✍️ 실전 문제 및 답안 작성", "💡 평가 팁 및 주의사항", "🎥 추천 미디어"
     ])
 
     with tab1:
@@ -527,7 +587,7 @@ if (
         media_text = st.session_state.get('media_info', '')
         st.write(media_text)
         st.write("---")
-        st.write("📌 **바로가기 링크** (과부하 방지를 위해 직접 검색 링크를 제공합니다)")
+        st.write("📌 **바로가기 링크**")
 
         for line in [l.strip() for l in media_text.split('\n') if l.strip()]:
             if ":" in line:
@@ -540,27 +600,27 @@ if (
 
     with tab2:
         st.info(st.session_state.get('practice_question', ''))
-        user_ans = st.text_area("내 답안 작성", height=220)
+        user_ans = st.text_area("내 답안 또는 글쓰기 결과물 작성", height=220)
 
-        if st.button("✨ AI 채점 및 예상 점수 받기"):
+        if st.button("✨ AI 정밀 채점 및 피드백 받기"):
             if user_ans.strip():
-                with st.spinner("AI가 답안을 정밀 채점하고 있습니다..."):
+                with st.spinner("AI가 답안을 정밀 채점하고 피드백을 작성하고 있습니다..."):
                     try:
                         contents_grade = []
-                        if st.session_state.get('ref_img') is not None:
-                            contents_grade.append(st.session_state['ref_img'])
+                        if st.session_state.get('ref_imgs_list'):
+                            contents_grade.extend(st.session_state['ref_imgs_list'])
 
                         prompt_grade = f"""
-[문제]:
+[문제/과제]:
 {st.session_state.get('practice_question', '')}
 
-[내 답안]:
+[제출한 답안/글]:
 {user_ans}
 
-[조건]:
+[수행평가 조건/안내지]:
 {st.session_state.get('guide_text', '')}
 
-조건 충족 여부, 예상 점수, 감점 요인을 간결하게 채점해 주세요.
+조건 충족 여부, 예상 점수, 구체적인 개선 피드백 및 감점 요인을 간결하게 채점해 주세요.
 """
                         contents_grade.append(prompt_grade)
                         res_grade = generate_content_with_retry(
@@ -600,7 +660,7 @@ elif (
         st.write("🎤 **암기한 지문을 아래 마이크 버튼을 눌러 음성으로 말해보세요:**")
         user_audio = st.audio_input("음성 녹음")
     else:
-        user_memo_ans = st.text_area("문제에 대한 정답을 작성해 보세요", height=150)
+        user_memo_ans = st.text_area("문제에 대한 정답 (객관식 번호 또는 주관식 정답)을 작성해 보세요", height=150)
 
     if st.button("📝 암기 답안 제출 및 채점하기"):
         if (is_speaking_mode and user_audio is not None) or (not is_speaking_mode and user_memo_ans.strip()):
@@ -615,15 +675,10 @@ elif (
                                 mime_type=user_audio.type or "audio/wav"
                             )
                         )
-                        prompt_memo_grade = f"문제:\n{st.session_state['memo_test_q']}\n음성을 듣고 원본과 대조하여 간결히 채점해 주세요."
+                        prompt_memo_grade = f"문제:\n{st.session_state['memo_test_q']}\n음성을 듣고 원본과 대조하여 정답 여부 및 해설을 간결히 채점해 주세요."
                     else:
-                        prompt_memo_grade = f"문제:\n{st.session_state['memo_test_q']}\n답안:\n{user_memo_ans}\n원본 기준으로 간결히 채점해 주세요."
+                        prompt_memo_grade = f"문제:\n{st.session_state['memo_test_q']}\n제출한 답안:\n{user_memo_ans}\n원본 기준으로 정답 여부와 해설을 간결히 채점해 주세요."
 
-                    if uploaded_img is not None:
-                        contents.append(uploaded_img)
-                    if memo_text.strip():
-                        contents.append(memo_text)
-                        
                     contents.append(prompt_memo_grade)
 
                     res_memo_grade = generate_content_with_retry(
@@ -652,4 +707,3 @@ with col_btn:
     if st.button("💬 인공지능에게 질문하기", use_container_width=True):
         st.session_state['qna_mode'] = True
         st.rerun()
-
