@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.5)
+# 🎨 연파랑 및 무채색 UI 커스텀 디자인 적용 & 버전 표시 추가 (우측 하단 고정 - v 1.6)
 # ==========================================
 st.markdown("""
 <style>
@@ -63,7 +63,7 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 </style>
-<div class="version-label">v 1.5</div>
+<div class="version-label">v 1.6</div>
 """, unsafe_allow_html=True)
 
 
@@ -192,73 +192,102 @@ if st.session_state['qna_mode']:
 
 
 # ==========================================
-# 📄 텍스트 중심 A4 리포트 자료 제작실 (신규 추가)
+# 📄 텍스트 중심 A4 리포트 자료 제작실 (사진 업로드 및 연관성 강화 적용 - v1.6)
 # ==========================================
 if st.session_state['text_report_mode']:
 
-    st.title("📄 글로만 이루어진 A4 용지 학습/보고서 자료 제작실")
+    st.title("📄 A4 리포트(글/사진) 수행평가 자료 제작실")
 
     if st.button("⬅️ 메인 화면으로 돌아가기"):
         st.session_state['text_report_mode'] = False
         st.rerun()
 
-    st.info("💡 프린트나 제출용으로 적합한 **텍스트 중심의 깔끔한 A4 리포트 형식 자료**를 생성하여 다운로드하는 공간입니다.")
+    st.info("💡 업로드한 사진과 핵심 주제에 **100% 연관된 내용**으로 수행평가 제출용 또는 학습용 **A4 텍스트 리포트**를 생성합니다.")
+
+    # 사진 업로드 기능 추가
+    report_img_files = st.file_uploader(
+        "🖼️ 참고할 사진/자료 업로드 (여러 장 선택 가능)",
+        type=["jpg", "jpeg", "png"],
+        key="report_imgs",
+        accept_multiple_files=True
+    )
+
+    processed_report_imgs = []
+    if report_img_files:
+        for f in report_img_files:
+            raw_img = Image.open(f)
+            processed_report_imgs.append(process_image(raw_img))
+        st.success(f"총 {len(processed_report_imgs)}장의 참고 사진이 최적화되었습니다.")
 
     report_topic = st.text_area(
-        "1. 보고서 또는 학습 자료 주제 / 핵심 내용 입력",
-        height=150,
-        placeholder="예: 조선시대 실학의 발전 과정과 주요 학자들의 주장 정리"
+        "1. 수행평가 주제 또는 세부 내용 입력",
+        height=130,
+        placeholder="예: 첨부한 자료를 바탕으로 한 생태계 파괴의 원인과 해결 방안 보고서 작성"
     )
 
     report_style = st.selectbox(
         "2. 문서 스타일 선택",
-        ["학습 개념 정리 노트", "수행평가 제출용 보고서 초안", "서술형 요약 정리본"]
+        ["수행평가 제출용 보고서 초안 (완성된 글)", "학습 개념 정리 노트 (핵심 요약)", "논설문 / 에세이 작성 가이드 및 예시"]
     )
 
-    if st.button("✨ A4 리포트 텍스트 파일 생성하기", type="primary", use_container_width=True):
-        if report_topic.strip():
+    if st.button("✨ 수행평가 맞춤 A4 리포트 생성하기", type="primary", use_container_width=True):
+        if report_topic.strip() or processed_report_imgs:
             st.session_state.pop('generated_text_report', None)
 
-            with st.spinner("A4 용지에 최적화된 고품질 텍스트 자료를 작성하고 있습니다..."):
+            with st.spinner("제공된 자료와 사진의 핵심 내용을 정밀 분석하여 A4 리포트를 작성하고 있습니다..."):
                 try:
+                    contents_report = list(processed_report_imgs)
+
                     prompt_report = f"""
-당신은 전문 학습 교재 및 보고서 작성 작가입니다.
-제공된 주제와 스타일에 맞춰 A4 용지에 인쇄하거나 읽기 좋은 '완벽한 텍스트 중심 학습/보고서 자료'를 작성해주세요.
+당신은 최고의 수행평가 전문 지도 교사 및 작가입니다.
+사용자가 제공한 [참고 사진]과 [주제/내용]을 철저히 분석하여, 무관한 내용은 절대 배제하고 **오직 입력된 자료와 주제에 100% 직결된 내용**으로만 A4 리포트 자료를 작성해주세요.
 
 [문서 스타일]: {report_style}
 [주제/내용]: {report_topic}
 
-[작성 지침]
-1. 마크다운 형식으로 제목(#, ##), 불렛 포인트, 강조(`**`)를 활용하여 가독성을 극대화하세요.
-2. 서론 - 본론(핵심 개념 및 세부 내용) - 결론/요약 구조로 체계적으로 작성하세요.
-3. 불필요한 인사말이나 잡소리는 생략하고 즉시 활용할 수 있는 순수 학습/보고서 내용만 출력하세요.
+[엄격한 작성 규칙]
+1. 첨부된 사진 속 텍스트나 핵심 개념을 빠짐없이 분석하여 리포트에 적극 반영하세요.
+2. 마크다운 형식으로 제목(#, ##), 불렛 포인트(`-`), 강조(`**`)를 사용하여 가독성과 완성도를 극대화하세요.
+3. 수행평가 제출용이나 완벽한 학습용으로 즉시 활용할 수 있도록 깊이 있고 정확한 내용으로 구성하세요. 불필요한 잡담이나 인사말은 절대 넣지 마세요.
 """
+                    contents_report.append(prompt_report)
+
                     res_rep = generate_content_with_retry(
                         model_name='gemini-3.6-flash',
-                        contents=prompt_report
+                        contents=contents_report
                     )
 
                     if res_rep is not None:
                         st.session_state['generated_text_report'] = res_rep.text.strip()
-                        st.success("🎉 A4 리포트 자료가 성공적으로 준비되었습니다!")
+                        st.success("🎉 수행평가 맞춤 A4 리포트가 성공적으로 준비되었습니다!")
 
                 except Exception as e:
                     st.error(f"오류가 발생했습니다: {e}")
         else:
-            st.warning("주제 또는 핵심 내용을 입력해 주세요.")
+            st.warning("주제 또는 참고 사진을 하나 이상 입력/첨부해 주세요.")
 
     if 'generated_text_report' in st.session_state:
         st.divider()
         st.markdown("### 👁️ 미리보기")
         st.markdown(st.session_state['generated_text_report'])
 
-        st.download_button(
-            label="💾 A4 리포트 다운로드 (.txt)",
-            data=st.session_state['generated_text_report'].encode('utf-8'),
-            file_name="study_report.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            st.download_button(
+                label="💾 텍스트 파일로 다운로드 (.txt)",
+                data=st.session_state['generated_text_report'].encode('utf-8'),
+                file_name="study_report.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+        with col_d2:
+            st.download_button(
+                label="💾 마크다운 파일로 다운로드 (.md)",
+                data=st.session_state['generated_text_report'].encode('utf-8'),
+                file_name="study_report.md",
+                mime="text/markdown",
+                use_container_width=True
+            )
 
     st.stop()
 
@@ -312,12 +341,12 @@ if st.session_state['material_mode']:
 
                     prompt_complex = """
 당신은 최고의 웹 교재 및 복합양식 학습 자료 디자이너입니다.
-제공된 자료와 주제를 바탕으로 사용자가 다운로드하여 웹브라우저로 열어볼 수 있는 '완벽한 단독 실행형 HTML 문서 코드'를 처음부터 끝까지 완성도 있게 작성하세요.
+제공된 자료와 주제에 100% 부합하는 내용만을 바탕으로 사용자가 다운로드하여 웹브라우저로 열어볼 수 있는 '완벽한 단독 실행형 HTML 문서 코드'를 작성하세요.
 
 [🚨 절대 엄수 규칙]
 1. 결과물은 반드시 완벽한 HTML 코드(`<!DOCTYPE html>...</html>`) 전체만 출력하세요. 마크다운 백틱(```html ... ```)이나 설명 글을 절대 붙이지 마세요.
 2. 내부 CSS 스타일을 포함하여 모바일과 PC 모두에서 예쁘고 깔끔하게 보이도록 디자인하세요.
-3. 이미지 엑박 방지를 위해 관련 주제의 영어 키워드 이미지를 사용하세요:
+3. 이미지 엑박 방지를 위해 제공된 주제와 밀접하게 연관된 구체적인 영어 키워드 이미지를 사용하세요:
 형식: `<img src="https://image.pollinations.ai/prompt/구체적인_영어_키워드_설명?width=800&height=400&nologo=true" alt="설명" onerror="this.style.display='none'">`
 """
                     if mat_topic.strip():
@@ -418,7 +447,7 @@ if mode == "일반 수행평가 준비":
     # 자료 제작실 바로가기 버튼들 (상단 배치)
     col_mb1, col_mb2 = st.columns(2)
     with col_mb1:
-        if st.button("📄 A4 리포트(글) 자료 제작실", use_container_width=True):
+        if st.button("📄 A4 리포트(글/사진) 자료 제작실", use_container_width=True):
             st.session_state['text_report_mode'] = True
             st.rerun()
     with col_mb2:
@@ -430,7 +459,7 @@ if mode == "일반 수행평가 준비":
 
     if st.button("📝 맞춤형 실전 문제 및 글쓰기 가이드 생성", use_container_width=True, type="primary"):
         if guide_text.strip() or ref_text_input.strip() or ref_texts_list or ref_imgs_list:
-            with st.spinner("모든 자료를 통합 분석하여 수행평가 맞춤 가이드 및 문제를 생성하고 있습니다..."):
+            with st.spinner("모든 자료를 철저히 분석하여 수행평가 맞춤 가이드 및 문제를 생성하고 있습니다..."):
                 try:
                     contents_base = list(ref_imgs_list)
 
@@ -447,7 +476,7 @@ if mode == "일반 수행평가 준비":
                         contents_base.append(input_text)
 
                     prompt_combined = """
-제공된 다중 참고 자료와 안내지를 바탕으로 다음 4가지 항목을 작성해 주세요.
+제공된 다중 참고 자료와 안내지의 핵심 내용에 100% 집중하여 다음 4가지 항목을 작성해 주세요. (무관한 내용 금지)
 각 항목 사이에는 반드시 `===구분선===` 텍스트를 넣어 분리하세요.
 
 1. 핵심 개념 정리 및 수행평가 맞춤 글쓰기/설명 가이드 (글쓰기 수행평가인 경우 직접 훌륭한 예시 글이나 작성 방향을 상세히 제시해주세요)
@@ -535,12 +564,12 @@ elif mode == "암기 시험 연습":
                         contents.append(memo_text)
 
                     if test_type == "객관식 (4지선다)":
-                        prompt_memo = "제공된 내용을 바탕으로 핵심 객관식 4지선다 문제 3문항을 출제해 주세요. (정답과 해설은 숨기고 문제만 출제)"
+                        prompt_memo = "제공된 내용에만 100% 기반하여 핵심 객관식 4지선다 문제 3문항을 출제해 주세요. (정답과 해설은 숨기고 문제만 출제)"
                     else:
                         if subject == "영어 (지문 암기)" and eng_mode == "음성으로 말하기 테스트 (Speaking)":
-                            prompt_memo = "지문을 완벽하게 암기했는지 확인하는 스피킹 테스트를 진행합니다. 핵심 개요 힌트를 주고 음성으로 말해보도록 안내하세요."
+                            prompt_memo = "제공된 지문에만 기반하여 암기 여부를 확인하는 스피킹 테스트를 진행합니다. 핵심 개요 힌트를 주고 음성으로 말해보도록 안내하세요."
                         else:
-                            prompt_memo = "제공된 내용을 바탕으로 핵심 암기 주관식/단답형 문제 3문항을 출제해 주세요. (정답 제외)"
+                            prompt_memo = "제공된 내용에만 100% 기반하여 핵심 암기 주관식/단답형 문제 3문항을 출제해 주세요. (정답 제외)"
 
                     contents.append(prompt_memo)
 
